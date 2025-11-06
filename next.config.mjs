@@ -134,8 +134,6 @@ const nextConfig = {
     return config;
   },
 
-  // Output configuration for production
-  output: process.env.NODE_ENV === 'production' ? 'standalone' : undefined,
 }
 
 export default nextConfig

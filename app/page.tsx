@@ -114,7 +114,7 @@ export default function Home() {
                   {/* Main calendar view */}
                   <div className="rounded-lg border bg-background shadow-xl overflow-hidden">
                     <Image
-                      src="/images/landing/Calendar.png"
+                      src="/placeholder.svg"
                       alt="Calendar interface"
                       width={1600}
                        height={1200}
@@ -125,7 +125,7 @@ export default function Home() {
                   {/* Mobile app view */}
                   <div className="absolute -right-6 bottom-0 md:-right-12 md:bottom-12 w-[200px] md:w-[250px] rounded-lg border bg-gray-900 shadow-xl overflow-hidden rotate-6">
                     <Image
-                      src="/images/landing/Calendar.png"
+                      src="/placeholder.svg"
                       alt="Mobile app interface"
                       width={250}
                       height={500}
