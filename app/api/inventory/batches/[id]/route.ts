@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { getServerSession } from "next-auth"
+import { auth } from "@/auth"
 
 // GET /api/inventory/batches/[id] - Get a specific product batch
 export async function GET(
@@ -50,7 +50,7 @@ export async function PUT(
 ) {
   try {
     // Check user session and permissions
-    const session = await getServerSession()
+    const session = await auth()
     if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
@@ -121,7 +121,7 @@ export async function DELETE(
 ) {
   try {
     // Check user session and permissions
-    const session = await getServerSession()
+    const session = await auth()
     if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }

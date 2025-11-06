@@ -1,4 +1,4 @@
-import { getServerSession } from "next-auth/next"
+import { auth } from "@/auth"
 import { NextRequest } from "next/server"
 import { prisma } from "@/lib/prisma"
 

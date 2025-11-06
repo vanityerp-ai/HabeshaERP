@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { getServerSession } from "next-auth"
+import { auth } from "@/auth"
 
 // POST /api/inventory/dispose - Mark products for disposal and adjust inventory
 export async function POST(request: Request) {
   try {
     // Check user session and permissions
-    const session = await getServerSession()
+    const session = await auth()
     if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
