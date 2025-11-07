@@ -208,9 +208,10 @@ export async function POST(request: NextRequest) {
     // Try to create in database first
     try {
       // Create user first with enhanced password security
-      const { mapStaffRoleToUserRole, hashPassword } = await import('@/lib/auth-utils');
+      const { mapStaffRoleToUserRole } = await import('@/lib/auth-utils');
+      const bcrypt = await import('bcryptjs');
       const userRole = mapStaffRoleToUserRole(role);
-      const hashedPassword = hashPassword('temp123'); // Temporary password - should be changed on first login
+      const hashedPassword = await bcrypt.hash('temp123', 12); // Temporary password - should be changed on first login
 
       const user = await prisma.user.create({
         data: {

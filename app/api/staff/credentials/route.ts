@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { generateTemporaryPassword, generateUsername, hashPassword, mapStaffRoleToUserRole } from "@/lib/auth-utils"
+import { generateTemporaryPassword, generateUsername, mapStaffRoleToUserRole } from "@/lib/auth-utils"
+import bcrypt from "bcryptjs"
 
 /**
  * GET /api/staff/credentials
@@ -104,13 +105,13 @@ export async function POST(request: NextRequest) {
     const username = generateUsername(staffMember.name, staffMember.employeeNumber || undefined)
     const email = `${username}@vanityhub.com`
     const password = generatePassword ? generateTemporaryPassword() : customPassword
-    
+
     if (!password) {
       return NextResponse.json({ error: "Password is required" }, { status: 400 })
     }
 
-    // Hash the password
-    const hashedPassword = hashPassword(password)
+    // Hash the password using bcrypt
+    const hashedPassword = await bcrypt.hash(password, 12)
 
     // Create user account
     const user = await prisma.user.create({

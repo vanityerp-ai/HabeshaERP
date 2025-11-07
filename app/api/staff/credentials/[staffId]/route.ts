@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { generateTemporaryPassword, hashPassword } from "@/lib/auth-utils"
+import { generateTemporaryPassword } from "@/lib/auth-utils"
+import bcrypt from "bcryptjs"
 
 /**
  * PUT /api/staff/credentials/[staffId]
@@ -44,13 +45,13 @@ export async function PUT(
     switch (action) {
       case 'reset_password':
         const tempPassword = generateTemporaryPassword()
-        const hashedPassword = hashPassword(tempPassword)
-        
+        const hashedPassword = await bcrypt.hash(tempPassword, 12)
+
         await prisma.user.update({
           where: { id: staffMember.user.id },
           data: { password: hashedPassword }
         })
-        
+
         result.temporaryPassword = tempPassword
         console.log(`✅ Password reset for ${staffMember.name}`)
         break
@@ -59,13 +60,13 @@ export async function PUT(
         if (!newPassword) {
           return NextResponse.json({ error: "New password is required" }, { status: 400 })
         }
-        
-        const newHashedPassword = hashPassword(newPassword)
+
+        const newHashedPassword = await bcrypt.hash(newPassword, 12)
         await prisma.user.update({
           where: { id: staffMember.user.id },
           data: { password: newHashedPassword }
         })
-        
+
         console.log(`✅ Password updated for ${staffMember.name}`)
         break
 
