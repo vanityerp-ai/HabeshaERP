@@ -56,7 +56,7 @@ export function useFieldValidation(
     dirty: false
   })
 
-  const debounceRef = useRef<NodeJS.Timeout>()
+  const debounceRef = useRef<NodeJS.Timeout | null>(null)
   const validationRef = useRef<Promise<ValidationResult> | null>(null)
 
   const {
@@ -99,7 +99,7 @@ export function useFieldValidation(
           isValidating: false,
           errors: result.errors?.map(e => e.message) || [],
           warnings: result.warnings?.map(w => w.message) || [],
-          suggestions: result.warnings?.map(w => w.suggestion).filter(Boolean) || [],
+          suggestions: result.warnings?.map(w => w.suggestion).filter((s): s is string => Boolean(s)) || [],
           touched: validationState.touched,
           dirty: validationState.dirty
         }
@@ -226,7 +226,7 @@ export function useFormValidation<T>(
     dirtyFields: new Set()
   })
 
-  const debounceRef = useRef<NodeJS.Timeout>()
+  const debounceRef = useRef<NodeJS.Timeout | null>(null)
   const validationRef = useRef<Promise<ValidationResult> | null>(null)
 
   const {

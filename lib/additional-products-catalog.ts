@@ -110,7 +110,6 @@ export const additionalSkincareProducts: EnhancedProduct[] = [
     sku: "SK-SM-001",
     barcode: "8901234560006",
     isRetail: true,
-    isNew: true,
     brand: "Vanity Pro",
     size: "5 masks"
   }
@@ -209,7 +208,6 @@ export const additionalMakeupProducts: EnhancedProduct[] = [
     sku: "MK-BS-001",
     barcode: "8901234570005",
     isRetail: true,
-    isNew: true,
     brand: "Vanity Glam",
     size: "10 pieces"
   }
@@ -376,7 +374,6 @@ export const specialtyProducts: EnhancedProduct[] = [
     sku: "SP-FCD-001",
     barcode: "8901234630001",
     isRetail: true,
-    isNew: true,
     brand: "Vanity Tech",
     size: "1 device"
   }
