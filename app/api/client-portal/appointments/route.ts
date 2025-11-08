@@ -45,16 +45,19 @@ export async function GET(request: NextRequest) {
           client: {
             select: {
               id: true,
-              name: true,
               email: true,
-              phone: true,
+              clientProfile: {
+                select: {
+                  name: true,
+                  phone: true,
+                },
+              },
             },
           },
           staff: {
             select: {
               id: true,
               name: true,
-              email: true,
             },
           },
           location: {
@@ -77,7 +80,9 @@ export async function GET(request: NextRequest) {
       const filteredAppointments = dbAppointments.map(apt => ({
         id: apt.id,
         clientId: apt.clientId,
-        clientName: apt.client?.name || '',
+        clientName: apt.client?.clientProfile?.name || '',
+        clientEmail: apt.client?.email || '',
+        clientPhone: apt.client?.clientProfile?.phone || '',
         staffId: apt.staffId,
         staffName: apt.staff?.name || '',
         service: apt.services[0]?.service?.name || '',
@@ -225,16 +230,19 @@ export async function POST(request: Request) {
           client: {
             select: {
               id: true,
-              name: true,
               email: true,
-              phone: true,
+              clientProfile: {
+                select: {
+                  name: true,
+                  phone: true,
+                },
+              },
             },
           },
           staff: {
             select: {
               id: true,
               name: true,
-              email: true,
             },
           },
           location: {
@@ -253,7 +261,9 @@ export async function POST(request: Request) {
         id: dbAppointment.id,
         bookingReference: dbAppointment.bookingReference,
         clientId: dbAppointment.clientId,
-        clientName: dbAppointment.client?.name || data.clientName,
+        clientName: dbAppointment.client?.clientProfile?.name || data.clientName,
+        clientEmail: dbAppointment.client?.email || '',
+        clientPhone: dbAppointment.client?.clientProfile?.phone || '',
         staffId: dbAppointment.staffId,
         staffName: dbAppointment.staff?.name || data.staffName,
         service: data.service,

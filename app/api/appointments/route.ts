@@ -52,16 +52,19 @@ export async function GET(request: NextRequest) {
           client: {
             select: {
               id: true,
-              name: true,
               email: true,
-              phone: true,
+              clientProfile: {
+                select: {
+                  name: true,
+                  phone: true,
+                },
+              },
             },
           },
           staff: {
             select: {
               id: true,
               name: true,
-              email: true,
             },
           },
           location: {
@@ -90,7 +93,9 @@ export async function GET(request: NextRequest) {
       filteredAppointments = dbAppointments.map(apt => ({
         id: apt.id,
         clientId: apt.clientId,
-        clientName: apt.client?.name || '',
+        clientName: apt.client?.clientProfile?.name || '',
+        clientEmail: apt.client?.email || '',
+        clientPhone: apt.client?.clientProfile?.phone || '',
         staffId: apt.staffId,
         staffName: apt.staff?.name || '',
         service: apt.services[0]?.service?.name || '',
