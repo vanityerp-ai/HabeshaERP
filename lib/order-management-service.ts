@@ -62,32 +62,73 @@ export class OrderManagementService {
   }
 
   /**
-   * Load orders from localStorage
+   * Load orders from API with localStorage fallback
    */
   private loadOrders(): void {
     if (typeof window !== 'undefined') {
-      try {
-        const storedOrders = localStorage.getItem('salon_orders');
-        if (storedOrders) {
-          this.orders = JSON.parse(storedOrders).map((order: any) => ({
-            ...order,
-            createdAt: new Date(order.createdAt),
-            updatedAt: order.updatedAt ? new Date(order.updatedAt) : undefined,
-            processedAt: order.processedAt ? new Date(order.processedAt) : undefined,
-            shippedAt: order.shippedAt ? new Date(order.shippedAt) : undefined,
-            deliveredAt: order.deliveredAt ? new Date(order.deliveredAt) : undefined,
-            cancelledAt: order.cancelledAt ? new Date(order.cancelledAt) : undefined
-          }));
-        }
-      } catch (error) {
-        console.error('Error loading orders:', error);
-        this.orders = [];
-      }
+      // Try to load from API first
+      this.loadOrdersFromAPI().catch(() => {
+        // Fallback to localStorage if API fails
+        this.loadOrdersFromLocalStorage();
+      });
     }
   }
 
   /**
-   * Save orders to localStorage
+   * Load orders from API
+   */
+  private async loadOrdersFromAPI(): Promise<void> {
+    try {
+      const response = await fetch('/api/orders');
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      const data = await response.json();
+      this.orders = data.orders.map((order: any) => ({
+        ...order,
+        createdAt: new Date(order.createdAt),
+        updatedAt: order.updatedAt ? new Date(order.updatedAt) : undefined,
+        processedAt: order.processedAt ? new Date(order.processedAt) : undefined,
+        shippedAt: order.shippedAt ? new Date(order.shippedAt) : undefined,
+        deliveredAt: order.deliveredAt ? new Date(order.deliveredAt) : undefined,
+        cancelledAt: order.cancelledAt ? new Date(order.cancelledAt) : undefined
+      }));
+      // Also save to localStorage as backup
+      localStorage.setItem('salon_orders', JSON.stringify(this.orders));
+      console.log('Loaded orders from API:', this.orders.length);
+      this.notifyListeners();
+    } catch (error) {
+      console.warn('Failed to load orders from API:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Load orders from localStorage
+   */
+  private loadOrdersFromLocalStorage(): void {
+    try {
+      const storedOrders = localStorage.getItem('salon_orders');
+      if (storedOrders) {
+        this.orders = JSON.parse(storedOrders).map((order: any) => ({
+          ...order,
+          createdAt: new Date(order.createdAt),
+          updatedAt: order.updatedAt ? new Date(order.updatedAt) : undefined,
+          processedAt: order.processedAt ? new Date(order.processedAt) : undefined,
+          shippedAt: order.shippedAt ? new Date(order.shippedAt) : undefined,
+          deliveredAt: order.deliveredAt ? new Date(order.deliveredAt) : undefined,
+          cancelledAt: order.cancelledAt ? new Date(order.cancelledAt) : undefined
+        }));
+        console.log('Loaded orders from localStorage:', this.orders.length);
+      }
+    } catch (error) {
+      console.error('Error loading orders from localStorage:', error);
+      this.orders = [];
+    }
+  }
+
+  /**
+   * Save orders to localStorage (legacy)
    */
   private saveOrders(): void {
     if (typeof window !== 'undefined') {
@@ -96,6 +137,54 @@ export class OrderManagementService {
       } catch (error) {
         console.error('Error saving orders:', error);
       }
+    }
+  }
+
+  /**
+   * Save order to API
+   */
+  private async saveOrderToAPI(order: Order): Promise<void> {
+    try {
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(order),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      console.log('✅ Order saved to database:', order.orderNumber);
+    } catch (error) {
+      console.warn('Failed to save order to API:', error);
+      // Continue anyway - localStorage will be the backup
+    }
+  }
+
+  /**
+   * Update order in API
+   */
+  private async updateOrderInAPI(order: Order): Promise<void> {
+    try {
+      const response = await fetch('/api/orders', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(order),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      console.log('✅ Order updated in database:', order.orderNumber);
+    } catch (error) {
+      console.warn('Failed to update order in API:', error);
+      // Continue anyway - localStorage will be the backup
     }
   }
 
@@ -188,6 +277,8 @@ export class OrderManagementService {
       console.log('📦 ORDER SERVICE: Updating existing order:', order.id);
       // Update existing order
       this.orders[existingOrderIndex] = { ...this.orders[existingOrderIndex], ...order };
+      // Update in API
+      this.updateOrderInAPI(this.orders[existingOrderIndex]);
     } else {
       console.log('📦 ORDER SERVICE: Creating new order:', {
         orderId: order.id,
@@ -198,6 +289,9 @@ export class OrderManagementService {
 
       // Add new order
       this.orders.unshift(order); // Add to beginning for newest first
+
+      // Save to API
+      this.saveOrderToAPI(order);
 
       // Create notification for new order
       this.createNotification({
@@ -327,6 +421,9 @@ export class OrderManagementService {
 
     this.orders[orderIndex] = updatedOrder;
     console.log('✅ Order updated in service:', updatedOrder)
+
+    // Update in API
+    this.updateOrderInAPI(updatedOrder);
 
     // Update corresponding transaction status if callback is available
     if (this.transactionUpdateCallback && updatedOrder.transactionId) {

@@ -1053,19 +1053,8 @@ export default function BookAppointmentPage() {
         console.log("Browser notifications not supported or failed:", error);
       }
 
-      // Add the appointment to localStorage directly as a fallback
-      try {
-        const storedAppointments = localStorage.getItem("vanity_appointments")
-        if (storedAppointments) {
-          const appointments = JSON.parse(storedAppointments)
-          appointments.push(result.appointment)
-          localStorage.setItem("vanity_appointments", JSON.stringify(appointments))
-          console.log("Added appointment to localStorage directly")
-        }
-      } catch (error) {
-        console.error("Error adding appointment to localStorage directly:", error)
-      }
-
+      // The appointment is now saved to the database via the API
+      // localStorage is automatically updated by the appointment service
       // Initialize the appointment service to ensure all storage is in sync
       initializeAppointmentService()
 

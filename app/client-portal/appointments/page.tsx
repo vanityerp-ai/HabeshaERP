@@ -32,7 +32,7 @@ import { parseISO, subDays, isAfter, isBefore, addMinutes } from "date-fns"
 import { formatAppDate, formatAppTime, isPast, isToday, isFuture } from "@/lib/date-utils"
 import { ClientPortalLayout } from "@/components/client-portal/client-portal-layout"
 import { AppointmentStatus } from "@/lib/appointments-data"
-import { getAllAppointments, AppointmentData } from "@/lib/appointment-service"
+import { getAllAppointments, getAllAppointmentsAsync, AppointmentData } from "@/lib/appointment-service"
 import { useStaff } from "@/lib/staff-provider"
 import { useLocations } from "@/lib/location-provider"
 import { useServices } from "@/lib/service-provider"
@@ -87,17 +87,24 @@ export default function AppointmentsPage() {
     }
 
     try {
-      // Initialize the appointment service to ensure data consistency
-      // initializeAppointmentService() // This line is removed as per the new_code
+      // Get all appointments from the API (which fetches from database with localStorage fallback)
+      const allAppointments = await getAllAppointmentsAsync()
+      console.log("Client Portal: Loaded appointments from API/database", allAppointments.length)
 
-      // Get all appointments from the unified service
-      const allAppointments = getAllAppointments()
+      // Remove duplicates based on appointment ID
+      const uniqueAppointments = Array.from(
+        new Map(allAppointments.map(apt => [apt.id, apt])).values()
+      )
+
+      if (uniqueAppointments.length < allAppointments.length) {
+        console.log(`Client Portal: Removed ${allAppointments.length - uniqueAppointments.length} duplicate appointments`)
+      }
 
       // Get current client ID
       const currentClientId = getCurrentClientId()
 
       // Filter appointments for the current client
-      const clientFilteredAppointments = allAppointments.filter(appointment => {
+      const clientFilteredAppointments = uniqueAppointments.filter(appointment => {
         // Exclude reflected appointments from client portal
         if (appointment.isReflected) {
           return false
@@ -121,7 +128,7 @@ export default function AppointmentsPage() {
         return matches
       })
 
-      console.log("Fetched appointments for client:", currentClientId, "Total appointments:", allAppointments.length, "Filtered:", clientFilteredAppointments.length)
+      console.log("Fetched appointments for client:", currentClientId, "Total appointments:", uniqueAppointments.length, "Filtered:", clientFilteredAppointments.length)
       console.log("Client appointments:", clientFilteredAppointments)
       // When setting clientAppointments, no cast needed if getAllAppointments returns AppointmentData[]
       setClientAppointments(clientFilteredAppointments)

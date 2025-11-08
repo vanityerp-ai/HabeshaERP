@@ -7,7 +7,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { ServiceStorage } from "@/lib/service-storage"
 import { parseISO, format } from "date-fns"
 import { AppointmentStatus } from "@/lib/types/appointment"
-import { getAllAppointments, addAppointmentWithValidation, updateAppointment, initializeAppointmentService, saveAppointments } from "@/lib/appointment-service"
+import { getAllAppointments, getAllAppointmentsAsync, addAppointmentWithValidation, updateAppointment, initializeAppointmentService, saveAppointments } from "@/lib/appointment-service"
 import { useTransactions } from "@/lib/transaction-provider"
 import { InventoryTransactionService } from "@/lib/inventory-transaction-service"
 import { Transaction, TransactionType, TransactionSource, TransactionStatus, PaymentMethod } from "@/lib/transaction-types"
@@ -203,58 +203,61 @@ export default function AppointmentsPage() {
   // Load appointments using the appointment service
   useEffect(() => {
     // Force a synchronization of all appointment data sources
-    const forceSyncAppointments = () => {
+    const forceSyncAppointments = async () => {
       console.log("AppointmentsPage: Forcing synchronization of all appointment data sources");
 
       // Initialize the appointment service to ensure all storage is in sync
       initializeAppointmentService();
 
-      // Get all appointments from all sources (localStorage, mockAppointments, appointments array)
-      const allAppointments = getAllAppointments();
-      console.log("AppointmentsPage: Loaded appointments via service", allAppointments.length);
-
-      // Set the appointments state
-      setAppointments(allAppointments);
-
-      // Check for missing transactions after appointments are loaded
-      setTimeout(() => {
-        checkAndCreateMissingTransactions(allAppointments);
-      }, 2000);
-
-      // Also directly check localStorage to ensure we have the latest data
+      // Get all appointments from the API (which fetches from database with localStorage fallback)
       try {
-        const storedAppointments = localStorage.getItem("vanity_appointments");
-        if (storedAppointments) {
-          const parsedAppointments = JSON.parse(storedAppointments);
-          console.log("AppointmentsPage: Direct localStorage check found", parsedAppointments.length, "appointments");
+        const allAppointments = await getAllAppointmentsAsync();
+        console.log("AppointmentsPage: Loaded appointments from API/database", allAppointments.length);
 
-          // If localStorage has more appointments than our current state, use those instead
-          if (parsedAppointments.length > allAppointments.length) {
-            console.log("AppointmentsPage: Using localStorage appointments as they contain more data");
-            setAppointments(parsedAppointments);
+        // Remove duplicates based on appointment ID
+        const uniqueAppointments = Array.from(
+          new Map(allAppointments.map(apt => [apt.id, apt])).values()
+        );
 
-            // Also update the appointment service with this data
-            saveAppointments(parsedAppointments);
-
-            // Check for missing transactions for the localStorage appointments too
-            setTimeout(() => {
-              checkAndCreateMissingTransactions(parsedAppointments);
-            }, 2000);
-          }
+        if (uniqueAppointments.length < allAppointments.length) {
+          console.log(`AppointmentsPage: Removed ${allAppointments.length - uniqueAppointments.length} duplicate appointments`);
         }
+
+        // Set the appointments state
+        setAppointments(uniqueAppointments);
+
+        // Check for missing transactions after appointments are loaded
+        setTimeout(() => {
+          checkAndCreateMissingTransactions(uniqueAppointments);
+        }, 2000);
       } catch (error) {
-        console.error("AppointmentsPage: Error checking localStorage directly", error);
+        console.error("AppointmentsPage: Error loading appointments from API, falling back to localStorage", error);
+
+        // Fallback to localStorage if API fails
+        const allAppointments = getAllAppointments();
+        console.log("AppointmentsPage: Loaded appointments from localStorage fallback", allAppointments.length);
+
+        // Remove duplicates
+        const uniqueAppointments = Array.from(
+          new Map(allAppointments.map(apt => [apt.id, apt])).values()
+        );
+
+        setAppointments(uniqueAppointments);
+
+        setTimeout(() => {
+          checkAndCreateMissingTransactions(uniqueAppointments);
+        }, 2000);
       }
     };
 
     // Initial load
     forceSyncAppointments();
 
-    // Set up an interval to refresh appointments every 5 seconds (more frequent than before)
+    // Set up an interval to refresh appointments every 30 seconds (reduced frequency to avoid excessive API calls)
     const refreshInterval = setInterval(() => {
       console.log("AppointmentsPage: Refreshing appointments...");
       forceSyncAppointments();
-    }, 5000);
+    }, 30000);
 
     // Clean up the interval when the component unmounts
     return () => clearInterval(refreshInterval);

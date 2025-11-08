@@ -47,35 +47,62 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Load transactions from localStorage on mount
+  // Load transactions from API on mount, with localStorage fallback
   useEffect(() => {
-    const storedTransactions = localStorage.getItem('vanity_transactions');
-    if (storedTransactions) {
+    async function loadTransactions() {
       try {
-        const parsedTransactions = JSON.parse(storedTransactions);
-        // Convert date strings back to Date objects
-        const transactionsWithDates = parsedTransactions.map((tx: any) => ({
-          ...tx,
-          date: new Date(tx.date),
-          createdAt: new Date(tx.createdAt),
-          updatedAt: new Date(tx.updatedAt)
-        }));
-        setTransactions(transactionsWithDates);
-        console.log('Loaded transactions from localStorage:', transactionsWithDates.length);
+        // Try to fetch from API first
+        const response = await fetch('/api/transactions');
+        if (response.ok) {
+          const data = await response.json();
+          const transactionsWithDates = data.transactions.map((tx: any) => ({
+            ...tx,
+            date: new Date(tx.createdAt), // Use createdAt as date
+            createdAt: new Date(tx.createdAt),
+            updatedAt: new Date(tx.updatedAt)
+          }));
+          setTransactions(transactionsWithDates);
+          // Also save to localStorage as backup
+          localStorage.setItem('vanity_transactions', JSON.stringify(transactionsWithDates));
+          console.log('Loaded transactions from API:', transactionsWithDates.length);
+          setIsInitialized(true);
+          return;
+        }
       } catch (error) {
-        console.error('Failed to parse stored transactions:', error);
-        // If parsing fails, start with default transactions
+        console.warn('Failed to fetch transactions from API, using localStorage fallback:', error);
+      }
+
+      // Fallback to localStorage
+      const storedTransactions = localStorage.getItem('vanity_transactions');
+      if (storedTransactions) {
+        try {
+          const parsedTransactions = JSON.parse(storedTransactions);
+          // Convert date strings back to Date objects
+          const transactionsWithDates = parsedTransactions.map((tx: any) => ({
+            ...tx,
+            date: new Date(tx.date),
+            createdAt: new Date(tx.createdAt),
+            updatedAt: new Date(tx.updatedAt)
+          }));
+          setTransactions(transactionsWithDates);
+          console.log('Loaded transactions from localStorage:', transactionsWithDates.length);
+        } catch (error) {
+          console.error('Failed to parse stored transactions:', error);
+          // If parsing fails, start with default transactions
+          const defaultTransactions = getDefaultTransactions();
+          setTransactions(defaultTransactions);
+          console.log('Failed to parse stored transactions, using default data');
+        }
+      } else {
+        // If no stored transactions, start with default transactions
         const defaultTransactions = getDefaultTransactions();
         setTransactions(defaultTransactions);
-        console.log('Failed to parse stored transactions, using default data');
+        console.log('No stored transactions found, initializing with default data');
       }
-    } else {
-      // If no stored transactions, start with default transactions
-      const defaultTransactions = getDefaultTransactions();
-      setTransactions(defaultTransactions);
-      console.log('No stored transactions found, initializing with default data');
+      setIsInitialized(true);
     }
-    setIsInitialized(true);
+
+    loadTransactions();
   }, []);
 
   // Save transactions to localStorage when they change (only after initialization)
@@ -320,6 +347,44 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
     console.log('Transaction ID:', newTransaction.id);
     console.log('Transaction source:', newTransaction.source);
     console.log('Transaction amount:', newTransaction.amount);
+
+    // Save to API asynchronously (don't block the UI)
+    (async () => {
+      try {
+        const response = await fetch('/api/transactions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: newTransaction.staffId || 'unknown',
+            amount: newTransaction.amount,
+            type: newTransaction.type,
+            status: newTransaction.status || 'COMPLETED',
+            method: newTransaction.method || 'CASH',
+            reference: newTransaction.reference?.id,
+            description: newTransaction.description,
+            locationId: newTransaction.location,
+            appointmentId: newTransaction.reference?.type === 'appointment' ? newTransaction.reference.id : undefined,
+            serviceAmount: newTransaction.serviceAmount,
+            productAmount: newTransaction.productAmount,
+            originalServiceAmount: newTransaction.originalServiceAmount,
+            discountPercentage: newTransaction.discountPercentage,
+            discountAmount: newTransaction.discountAmount,
+            items: newTransaction.items,
+          }),
+        });
+
+        if (!response.ok) {
+          console.warn('Failed to save transaction to API:', response.status);
+        } else {
+          console.log('✅ Transaction saved to database');
+        }
+      } catch (error) {
+        console.warn('Failed to save transaction to API:', error);
+        // Continue anyway - localStorage will be the backup
+      }
+    })();
 
     setTransactions(prev => {
       // Double-check for duplicates in the current state

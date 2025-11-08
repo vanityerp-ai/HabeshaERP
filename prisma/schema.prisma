@@ -79,11 +79,12 @@ model StaffMember {
   updatedAt        DateTime    @updatedAt
 
   // Relationships
-  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  locations    StaffLocation[]
-  appointments Appointment[]
-  services     StaffService[]
-  schedule     StaffSchedule[]
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  locations     StaffLocation[]
+  appointments  Appointment[]
+  services      StaffService[]
+  schedule      StaffSchedule[]
+  timeOffRequests TimeOffRequest[]
 
   @@index([name]) // Index for name searches
   @@index([status]) // Index for filtering by status
@@ -111,6 +112,27 @@ model StaffSchedule {
 
   @@unique([staffId, dayOfWeek])
   @@map("staff_schedules")
+}
+
+model TimeOffRequest {
+  id          String   @id @default(cuid())
+  staffId     String
+  startDate   DateTime
+  endDate     DateTime
+  reason      String
+  status      String   @default("pending") // pending, approved, rejected
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  updatedBy   String?
+
+  // Relationships
+  staff StaffMember @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@index([staffId])
+  @@index([status])
+  @@index([startDate, endDate])
+  @@map("time_off_requests")
 }
 
 // ============================================================================
@@ -642,6 +664,41 @@ model MembershipTransaction {
   membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
 
   @@map("membership_transactions")
+}
+
+// ============================================================================
+// ORDER MANAGEMENT
+// ============================================================================
+
+model Order {
+  id                  String    @id @default(cuid())
+  orderNumber         String    @unique
+  clientId            String
+  clientName          String
+  items               String    // JSON array of order items
+  subtotal            Decimal
+  tax                 Decimal
+  shipping            Decimal
+  total               Decimal
+  paymentMethod       String
+  shippingAddress     String    // JSON object
+  status              String    @default("pending") // pending, processing, shipped, delivered, cancelled
+  appliedPromo        String?   // JSON object
+  tracking            String?   // JSON object
+  notes               String?
+  transactionId       String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  processedAt         DateTime?
+  shippedAt           DateTime?
+  deliveredAt         DateTime?
+  cancelledAt         DateTime?
+  cancellationReason  String?
+
+  @@index([clientId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("orders")
 }
 
 // ============================================================================

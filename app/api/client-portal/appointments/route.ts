@@ -3,6 +3,7 @@ import { appointments, createAppointment, Appointment } from "@/lib/appointments
 import { parseISO, isBefore, isAfter, addMinutes } from "date-fns";
 import { addAppointment, getAllAppointments } from "@/lib/appointment-service";
 import { getUserFromHeaders, filterAppointmentsByLocationAccess } from "@/lib/auth-server";
+import { prisma } from "@/lib/prisma";
 
 // Get all appointments or filter by client
 export async function GET(request: NextRequest) {
@@ -16,48 +17,129 @@ export async function GET(request: NextRequest) {
     const location = searchParams.get("location");
     const date = searchParams.get("date");
 
-    // Get all appointments from the appointment service
-    // This combines localStorage, mockAppointments, and appointments arrays
-    let filteredAppointments = getAllAppointments();
-    console.log("API: Retrieved all appointments", filteredAppointments.length);
+    // Try to fetch from database first
+    try {
+      const where: any = {};
 
-    // Apply location-based access control
-    if (currentUser && currentUser.locations.length > 0) {
-      filteredAppointments = filterAppointmentsByLocationAccess(filteredAppointments, currentUser.locations);
-      console.log(`🔒 Filtered appointments by user location access: ${filteredAppointments.length} appointments visible to user`);
-    }
+      // Apply location-based access control
+      if (currentUser && currentUser.locations.length > 0 && !currentUser.locations.includes("all")) {
+        where.locationId = { in: currentUser.locations };
+      }
 
-    if (clientId) {
-      filteredAppointments = filteredAppointments.filter(
-        appointment => appointment.clientId === clientId
-      );
-    }
+      if (clientId) where.clientId = clientId;
+      if (staffId) where.staffId = staffId;
+      if (location) where.locationId = location;
+      if (date) {
+        const targetDate = new Date(date);
+        const nextDay = new Date(targetDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        where.date = {
+          gte: targetDate,
+          lt: nextDay,
+        };
+      }
 
-    if (staffId) {
-      filteredAppointments = filteredAppointments.filter(
-        appointment => appointment.staffId === staffId
-      );
-    }
-
-    if (location) {
-      filteredAppointments = filteredAppointments.filter(
-        appointment => appointment.location === location
-      );
-    }
-
-    if (date) {
-      const targetDate = parseISO(date);
-      filteredAppointments = filteredAppointments.filter(appointment => {
-        const appointmentDate = parseISO(appointment.date);
-        return (
-          appointmentDate.getFullYear() === targetDate.getFullYear() &&
-          appointmentDate.getMonth() === targetDate.getMonth() &&
-          appointmentDate.getDate() === targetDate.getDate()
-        );
+      const dbAppointments = await prisma.appointment.findMany({
+        where,
+        include: {
+          client: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+            },
+          },
+          staff: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          location: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          services: {
+            include: {
+              service: true,
+            },
+          },
+        },
+        orderBy: {
+          date: 'asc',
+        },
       });
-    }
 
-    return NextResponse.json({ appointments: filteredAppointments });
+      const filteredAppointments = dbAppointments.map(apt => ({
+        id: apt.id,
+        clientId: apt.clientId,
+        clientName: apt.client?.name || '',
+        staffId: apt.staffId,
+        staffName: apt.staff?.name || '',
+        service: apt.services[0]?.service?.name || '',
+        serviceId: apt.services[0]?.serviceId || '',
+        date: apt.date.toISOString(),
+        duration: apt.duration,
+        location: apt.locationId,
+        price: apt.totalPrice ? parseFloat(apt.totalPrice.toString()) : 0,
+        notes: apt.notes || '',
+        status: apt.status.toLowerCase(),
+        bookingReference: apt.bookingReference || '',
+        createdAt: apt.createdAt.toISOString(),
+        updatedAt: apt.updatedAt.toISOString(),
+      }));
+
+      console.log("API: Retrieved appointments from database", filteredAppointments.length);
+      return NextResponse.json({ appointments: filteredAppointments });
+    } catch (dbError) {
+      console.error("Database query failed, falling back to localStorage:", dbError);
+
+      // Fallback to localStorage
+      let filteredAppointments = getAllAppointments();
+      console.log("API: Retrieved all appointments from localStorage", filteredAppointments.length);
+
+      // Apply location-based access control
+      if (currentUser && currentUser.locations.length > 0) {
+        filteredAppointments = filterAppointmentsByLocationAccess(filteredAppointments, currentUser.locations);
+        console.log(`🔒 Filtered appointments by user location access: ${filteredAppointments.length} appointments visible to user`);
+      }
+
+      if (clientId) {
+        filteredAppointments = filteredAppointments.filter(
+          appointment => appointment.clientId === clientId
+        );
+      }
+
+      if (staffId) {
+        filteredAppointments = filteredAppointments.filter(
+          appointment => appointment.staffId === staffId
+        );
+      }
+
+      if (location) {
+        filteredAppointments = filteredAppointments.filter(
+          appointment => appointment.location === location
+        );
+      }
+
+      if (date) {
+        const targetDate = parseISO(date);
+        filteredAppointments = filteredAppointments.filter(appointment => {
+          const appointmentDate = parseISO(appointment.date);
+          return (
+            appointmentDate.getFullYear() === targetDate.getFullYear() &&
+            appointmentDate.getMonth() === targetDate.getMonth() &&
+            appointmentDate.getDate() === targetDate.getDate()
+          );
+        });
+      }
+
+      return NextResponse.json({ appointments: filteredAppointments });
+    }
   } catch (error) {
     console.error("Error fetching appointments:", error);
     return NextResponse.json({ error: "Failed to fetch appointments" }, { status: 500 });
@@ -123,65 +205,152 @@ export async function POST(request: Request) {
       return `VH-${Date.now().toString().slice(-6)}`;
     };
 
-    // Create the new appointment with all required properties for calendar view
-    const newAppointment = {
-      id: `a${Date.now()}`,
-      bookingReference: generateBookingReference(), // Add booking reference number
-      clientId: data.clientId,
-      clientName: data.clientName,
-      staffId: data.staffId,
-      staffName: data.staffName,
-      service: data.service,
-      serviceId: data.serviceId,
-      date: data.date,
-      duration: data.duration,
-      location: data.location,
-      price: data.price,
-      notes: data.notes,
-      status: data.status || "pending",
-      statusHistory: data.statusHistory || [
-        {
-          status: "pending",
-          timestamp: new Date().toISOString(),
-          updatedBy: "Client Portal"
-        }
-      ],
-      type: data.type || "appointment",
-      additionalServices: data.additionalServices || [],
-      products: data.products || [],
-      // Mark this appointment as coming from client portal
-      source: 'client_portal',
-      bookedVia: 'client_portal',
-      metadata: {
+    const bookingReference = generateBookingReference();
+
+    // Save to database first
+    try {
+      const dbAppointment = await prisma.appointment.create({
+        data: {
+          clientId: data.clientId,
+          staffId: data.staffId,
+          locationId: data.location,
+          date: new Date(data.date),
+          duration: data.duration,
+          totalPrice: data.price || 0,
+          notes: data.notes || '',
+          status: data.status || "SCHEDULED",
+          bookingReference: bookingReference,
+        },
+        include: {
+          client: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+            },
+          },
+          staff: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          location: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      });
+
+      console.log("✅ Appointment saved to database:", dbAppointment.id);
+
+      // Create the appointment object for response
+      const newAppointment = {
+        id: dbAppointment.id,
+        bookingReference: dbAppointment.bookingReference,
+        clientId: dbAppointment.clientId,
+        clientName: dbAppointment.client?.name || data.clientName,
+        staffId: dbAppointment.staffId,
+        staffName: dbAppointment.staff?.name || data.staffName,
+        service: data.service,
+        serviceId: data.serviceId,
+        date: dbAppointment.date.toISOString(),
+        duration: dbAppointment.duration,
+        location: dbAppointment.locationId,
+        price: dbAppointment.totalPrice ? parseFloat(dbAppointment.totalPrice.toString()) : 0,
+        notes: dbAppointment.notes || '',
+        status: dbAppointment.status.toLowerCase(),
+        statusHistory: data.statusHistory || [
+          {
+            status: "pending",
+            timestamp: new Date().toISOString(),
+            updatedBy: "Client Portal"
+          }
+        ],
+        type: data.type || "appointment",
+        additionalServices: data.additionalServices || [],
+        products: data.products || [],
+        // Mark this appointment as coming from client portal
         source: 'client_portal',
         bookedVia: 'client_portal',
-        isClientPortalBooking: true
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
+        metadata: {
+          source: 'client_portal',
+          bookedVia: 'client_portal',
+          isClientPortalBooking: true
+        },
+        createdAt: dbAppointment.createdAt.toISOString(),
+        updatedAt: dbAppointment.updatedAt.toISOString()
+      };
 
-    // In a real app, we would save this to a database
-    // For now, we'll add it to our mock data and use the appointment service
+      // Add to the appointments array for backward compatibility
+      appointments.push(newAppointment);
 
-    // Add to the appointments array for backward compatibility
-    appointments.push(newAppointment);
+      // Also add to localStorage via appointment service (for client-side cache)
+      try {
+        addAppointment(newAppointment);
+        console.log("API: Added appointment to localStorage cache", newAppointment.id);
+      } catch (error) {
+        console.error("Error adding to localStorage cache:", error);
+      }
 
-    // Use the appointment service to add the appointment to all storage locations
-    // Note: The appointment service can't directly update localStorage on the server side,
-    // but it will update the in-memory arrays that will be used by the client
-    try {
-      // Add the appointment using the appointment service
+      return NextResponse.json({
+        success: true,
+        appointment: newAppointment
+      });
+    } catch (dbError) {
+      console.error("Database error creating appointment:", dbError);
+
+      // Fallback to old method if database fails
+      const newAppointment = {
+        id: `a${Date.now()}`,
+        bookingReference: bookingReference,
+        clientId: data.clientId,
+        clientName: data.clientName,
+        staffId: data.staffId,
+        staffName: data.staffName,
+        service: data.service,
+        serviceId: data.serviceId,
+        date: data.date,
+        duration: data.duration,
+        location: data.location,
+        price: data.price,
+        notes: data.notes,
+        status: data.status || "pending",
+        statusHistory: data.statusHistory || [
+          {
+            status: "pending",
+            timestamp: new Date().toISOString(),
+            updatedBy: "Client Portal"
+          }
+        ],
+        type: data.type || "appointment",
+        additionalServices: data.additionalServices || [],
+        products: data.products || [],
+        source: 'client_portal',
+        bookedVia: 'client_portal',
+        metadata: {
+          source: 'client_portal',
+          bookedVia: 'client_portal',
+          isClientPortalBooking: true
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      appointments.push(newAppointment);
       addAppointment(newAppointment);
-      console.log("API: Created new appointment via appointment service", newAppointment.id);
-    } catch (error) {
-      console.error("Error in appointment creation:", error);
-    }
 
-    return NextResponse.json({
-      success: true,
-      appointment: newAppointment
-    });
+      console.warn("⚠️ Appointment saved to localStorage only (database failed)");
+
+      return NextResponse.json({
+        success: true,
+        appointment: newAppointment
+      });
+    }
   } catch (error) {
     console.error("Error booking appointment:", error);
     return NextResponse.json({ error: "Failed to book appointment" }, { status: 500 });

@@ -55,15 +55,49 @@ const STORAGE_KEY = 'vanity_appointments';
 // Debug flag - set to true to enable console logging
 const DEBUG = true;
 
+// Cache for appointments to avoid excessive API calls
+let appointmentsCache: AppointmentData[] | null = null;
+let cacheTimestamp: number = 0;
+const CACHE_DURATION = 30000; // 30 seconds
+
 /**
- * Get all appointments from localStorage
+ * Fetch appointments from the database via API
+ */
+async function fetchAppointmentsFromAPI(): Promise<AppointmentData[]> {
+  try {
+    const response = await fetch('/api/appointments');
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+    const data = await response.json();
+    return data.appointments || [];
+  } catch (error) {
+    console.error('AppointmentService: Error fetching from API', error);
+    throw error;
+  }
+}
+
+/**
+ * Get all appointments - tries API first, falls back to localStorage
  * This is now the single source of truth for appointment data
  */
 export function getAllAppointments(): AppointmentData[] {
-  // Try to get appointments from localStorage
+  // For server-side rendering, return empty array
+  if (typeof window === 'undefined') {
+    return [];
+  }
+
+  // Check cache first
+  const now = Date.now();
+  if (appointmentsCache && (now - cacheTimestamp) < CACHE_DURATION) {
+    if (DEBUG) console.log('AppointmentService: Using cached appointments', appointmentsCache.length);
+    return appointmentsCache;
+  }
+
+  // Try to get appointments from localStorage as fallback
   let appointments: AppointmentData[] = [];
   try {
-    const storedData = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null;
+    const storedData = localStorage.getItem(STORAGE_KEY);
     if (storedData) {
       appointments = JSON.parse(storedData);
       if (DEBUG) console.log('AppointmentService: Loaded from localStorage', appointments.length);
@@ -95,12 +129,44 @@ export function getAllAppointments(): AppointmentData[] {
     saveAppointments(appointments);
   }
 
+  // Update cache
+  appointmentsCache = appointments;
+  cacheTimestamp = now;
+
   if (DEBUG) console.log('AppointmentService: Retrieved appointments', appointments.length);
   return appointments;
 }
 
 /**
- * Save appointments to localStorage
+ * Get all appointments asynchronously - fetches from API with localStorage fallback
+ */
+export async function getAllAppointmentsAsync(): Promise<AppointmentData[]> {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+
+  try {
+    // Try to fetch from API
+    const appointments = await fetchAppointmentsFromAPI();
+
+    // Update cache
+    appointmentsCache = appointments;
+    cacheTimestamp = Date.now();
+
+    // Also update localStorage as backup
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(appointments));
+
+    if (DEBUG) console.log('AppointmentService: Fetched from API', appointments.length);
+    return appointments;
+  } catch (error) {
+    console.warn('AppointmentService: API fetch failed, using localStorage fallback', error);
+    // Fall back to localStorage
+    return getAllAppointments();
+  }
+}
+
+/**
+ * Save appointments to localStorage (legacy function)
  */
 export function saveAppointments(appointments: AppointmentData[]): void {
   if (DEBUG) console.log('AppointmentService: Saving appointments', appointments.length);
@@ -109,11 +175,90 @@ export function saveAppointments(appointments: AppointmentData[]): void {
   try {
     if (typeof window !== 'undefined') {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(appointments));
+      // Update cache
+      appointmentsCache = appointments;
+      cacheTimestamp = Date.now();
       if (DEBUG) console.log('AppointmentService: Saved to localStorage');
     }
   } catch (error) {
     console.error('AppointmentService: Error saving to localStorage', error);
   }
+}
+
+/**
+ * Save a single appointment to the database via API
+ */
+async function saveAppointmentToAPI(appointment: AppointmentData): Promise<AppointmentData> {
+  try {
+    const response = await fetch('/api/appointments', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(appointment),
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.appointment;
+  } catch (error) {
+    console.error('AppointmentService: Error saving to API', error);
+    throw error;
+  }
+}
+
+/**
+ * Update an appointment in the database via API
+ */
+async function updateAppointmentInAPI(appointment: AppointmentData): Promise<AppointmentData> {
+  try {
+    const response = await fetch('/api/appointments', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(appointment),
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.appointment;
+  } catch (error) {
+    console.error('AppointmentService: Error updating in API', error);
+    throw error;
+  }
+}
+
+/**
+ * Delete an appointment from the database via API
+ */
+async function deleteAppointmentFromAPI(appointmentId: string): Promise<void> {
+  try {
+    const response = await fetch(`/api/appointments?id=${appointmentId}`, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+  } catch (error) {
+    console.error('AppointmentService: Error deleting from API', error);
+    throw error;
+  }
+}
+
+/**
+ * Invalidate the appointments cache
+ */
+export function invalidateAppointmentsCache(): void {
+  appointmentsCache = null;
+  cacheTimestamp = 0;
 }
 
 /**
