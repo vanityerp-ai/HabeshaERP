@@ -36,7 +36,7 @@ const ServiceContext = createContext<ServiceContextType>({
   refreshServices: async () => {},
   refreshCategories: async () => {},
   refreshData: async () => {},
-  addService: async () => ({ id: "", name: "", category: "", price: 0, duration: 0, locations: [] }),
+  addService: async () => ({ id: "", name: "", category: "", type: "service", price: 0, duration: 0, locations: [] }),
   updateService: async () => {},
   deleteService: async () => {},
   addCategory: async () => ({ id: "", name: "", description: "", serviceCount: 0 }),
@@ -87,11 +87,17 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
       const response = await fetch("/api/service-categories")
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch categories: ${response.statusText}`)
+        const errorData = await response.json();
+        throw new Error(`Failed to fetch categories: ${errorData.error} - ${errorData.details || response.statusText}`);
       }
 
-      const data = await response.json()
-      console.log("✅ Loaded categories from database:", data.categories?.length || 0)
+      const data = await response.json();
+      if (!data.categories) {
+        console.warn("⚠️ No categories data in response");
+        throw new Error("Invalid categories data received from server");
+      }
+      
+      console.log("✅ Loaded categories from database:", data.categories.length || 0);
 
       setCategories(data.categories || [])
       return data.categories || []

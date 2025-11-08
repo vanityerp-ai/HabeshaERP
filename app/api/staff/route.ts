@@ -64,9 +64,69 @@ export async function GET(request: NextRequest) {
     const locationId = searchParams.get('locationId');
 
     // Try to get staff from database first
-    let allStaff;
+    interface TransformedStaff {
+      id: string;
+      name: string;
+      email: string;
+      phone: string;
+      role: string;
+      locations: string[];
+      status: string;
+      avatar: string;
+      color: string;
+      homeService: boolean;
+      specialties: any[];
+      employeeNumber: string;
+      dateOfBirth: string;
+      qidNumber: string;
+      passportNumber: string;
+      qidValidity: string;
+      passportValidity: string;
+      medicalValidity: string;
+      profileImage: string;
+      profileImageType: string;
+    }
+
+    let allStaff: TransformedStaff[];
+    
+    // Check database connection
     try {
-      const dbStaff = await prisma.staffMember.findMany({
+      await prisma.$connect();
+    } catch (error: any) {
+      console.error('Database connection error:', error);
+      return NextResponse.json({ error: 'Database connection failed', details: error.message }, { status: 503 });
+    }
+
+    try {
+      interface StaffMemberWithRelations {
+        id: string;
+        name: string;
+        user: { email: string; role: string };
+        locations: Array<{ locationId: string }>;
+        phone: string | null;
+        jobRole: string | null;
+        status: 'ACTIVE' | 'INACTIVE' | 'ON_LEAVE';
+        avatar: string | null;
+        color: string | null;
+        homeService: boolean;
+        specialties: string | null;
+        employeeNumber: string | null;
+        dateOfBirth: Date | null;
+        qidNumber: string | null;
+        passportNumber: string | null;
+        qidValidity: string | null;
+        passportValidity: string | null;
+        medicalValidity: string | null;
+        profileImage: string | null;
+        profileImageType: string | null;
+      }
+
+      // Set a reasonable timeout for the query
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Database query timeout')), 15000)
+      );
+
+      const queryPromise = prisma.staffMember.findMany({
         include: {
           user: true,
           locations: {
@@ -85,21 +145,25 @@ export async function GET(request: NextRequest) {
         }
       });
 
+      const dbStaff = await Promise.race([queryPromise, timeoutPromise]) as StaffMemberWithRelations[];
+
       console.log(`GET /api/staff - Found ${dbStaff.length} staff members in database`);
 
       if (dbStaff.length > 0) {
-        console.log('Sample staff IDs:', dbStaff.slice(0, 3).map(s => `${s.name}: ${s.id}`));
+        console.log('Sample staff IDs:', dbStaff.slice(0, 3).map((s: StaffMemberWithRelations) => `${s.name}: ${s.id}`));
 
         // Transform database data to match frontend interface
-        allStaff = dbStaff.map(staff => ({
-          id: staff.id,
+        allStaff = dbStaff.map((staff: StaffMemberWithRelations, index: number) => {
+          try {
+            return {
+              id: staff.id,
           name: staff.name,
           email: staff.user.email,
           phone: staff.phone || '',
           role: staff.jobRole || mapUserRoleToStaffRole(staff.user.role), // Use jobRole if available, otherwise map from UserRole
-          locations: staff.locations.map(loc => loc.locationId),
+          locations: staff.locations.map((loc: { locationId: string }) => loc.locationId),
           status: staff.status === 'ACTIVE' ? 'Active' : staff.status === 'INACTIVE' ? 'Inactive' : 'On Leave',
-          avatar: staff.avatar || staff.name.split(' ').map(n => n[0]).join(''),
+          avatar: staff.avatar || staff.name.split(' ').map((n: string) => n[0]).join(''),
           color: staff.color || 'bg-purple-100 text-purple-800',
           homeService: staff.homeService,
           specialties: staff.specialties ? (() => {
@@ -136,7 +200,33 @@ export async function GET(request: NextRequest) {
           medicalValidity: staff.medicalValidity || '',
           profileImage: staff.profileImage || staff.avatar || '',
           profileImageType: staff.profileImageType || ''
-        }));
+            };
+          } catch (err) {
+            console.error(`Error transforming staff member ${staff.id}:`, err);
+            return {
+              id: staff.id,
+              name: staff.name,
+              email: staff.user.email,
+              phone: '',
+              role: 'staff',
+              locations: [],
+              status: 'Inactive',
+              avatar: '',
+              color: 'bg-purple-100 text-purple-800',
+              homeService: false,
+              specialties: [],
+              employeeNumber: '',
+              dateOfBirth: '',
+              qidNumber: '',
+              passportNumber: '',
+              qidValidity: '',
+              passportValidity: '',
+              medicalValidity: '',
+              profileImage: '',
+              profileImageType: ''
+            };
+          }
+        });
       } else {
         console.log('No staff found in database');
         allStaff = [];
@@ -157,17 +247,17 @@ export async function GET(request: NextRequest) {
         if (currentUser?.role !== 'ADMIN') {
           filteredStaff = [];
         } else {
-          filteredStaff = allStaff.filter(s => s.homeService === true || s.locations.includes('home'));
+          filteredStaff = allStaff.filter((s: typeof allStaff[0]) => s.homeService === true || s.locations.includes('home'));
         }
       } else {
-        filteredStaff = allStaff.filter(s => s.locations.includes(locationId));
+        filteredStaff = allStaff.filter((s: typeof allStaff[0]) => s.locations.includes(locationId));
       }
     }
 
     // Apply user-based access control
     if (currentUser && currentUser.role !== 'ADMIN') {
       // Filter out home service staff for non-admin users
-      filteredStaff = filteredStaff.filter(s => {
+      filteredStaff = filteredStaff.filter((s: typeof filteredStaff[0]) => {
         // Remove staff that only have home service or are assigned to home location
         return !(s.homeService === true || s.locations.includes('home'));
       });
@@ -186,12 +276,35 @@ export async function GET(request: NextRequest) {
         }
       }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching staff:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch staff data' },
-      { status: 500 }
-    );
+    
+    // Handle specific error types
+    if (error.message === 'Database query timeout') {
+      return NextResponse.json({ 
+        error: 'Database query timed out',
+        details: 'The request took too long to process'
+      }, { status: 504 });
+    }
+    
+    if (error.code === 'P2002') {
+      return NextResponse.json({ 
+        error: 'Database constraint violation',
+        details: error.message 
+      }, { status: 409 });
+    }
+    
+    if (error.code?.startsWith('P')) {
+      return NextResponse.json({ 
+        error: 'Database error occurred',
+        details: error.message
+      }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      error: 'Failed to fetch staff data',
+      details: error.message
+    }, { status: 500 });
   }
 }
 
@@ -228,7 +341,7 @@ export async function POST(request: NextRequest) {
           userId: user.id,
           name,
           phone,
-          avatar: name.split(' ').map(n => n[0]).join(''),
+          avatar: name.split(' ').map((n: string) => n[0]).join(''),
           color: 'bg-purple-100 text-purple-800',
           jobRole: role, // Store the specific job role
           dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
@@ -268,7 +381,7 @@ export async function POST(request: NextRequest) {
 
       if (locationIds && locationIds.length > 0) {
         await Promise.all(
-          locationIds.map(locationId =>
+          locationIds.map((locationId: string) =>
             prisma.staffLocation.create({
               data: {
                 staffId: staff.id,

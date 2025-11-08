@@ -5,26 +5,52 @@ export async function GET() {
   try {
     console.log("🔄 Fetching service categories...")
 
-    // Get all services and extract unique categories
-    const services = await prisma.service.findMany({
+    // Check database connection first
+    try {
+      await prisma.$connect();
+    } catch (error: any) {
+      console.error('Database connection error:', error);
+      return NextResponse.json({ 
+        error: 'Database connection failed', 
+        details: error.message 
+      }, { status: 503 });
+    }
+
+    // Set a reasonable timeout for the query
+    const timeoutPromise = new Promise<never>((_, reject) => 
+      setTimeout(() => reject(new Error('Database query timeout')), 15000)
+    );
+
+    const queryPromise = prisma.service.findMany({
       where: {
         isActive: true
       },
       select: {
         category: true
       }
-    })
+    });
+
+    // Execute query with timeout
+    const services = await Promise.race([
+      queryPromise,
+      timeoutPromise
+    ]).catch(error => {
+      if (error.message === 'Database query timeout') {
+        throw new Error('Service categories query timed out');
+      }
+      throw error;
+    });
 
     // Extract unique categories and count services for each
     const categoryMap = new Map<string, number>()
 
-    services.forEach(service => {
-      const category = (service.category || "Uncategorized").trim()
+    services.forEach((service: { category: string | null }) => {
+      const category = (service.category || "Uncategorized").trim();
       // Ensure we don't have empty categories
       if (category && category !== "") {
-        categoryMap.set(category, (categoryMap.get(category) || 0) + 1)
+        categoryMap.set(category, (categoryMap.get(category) || 0) + 1);
       }
-    })
+    });
 
     // Convert to the expected format with consistent ID generation
     const categories = Array.from(categoryMap.entries()).map(([name, count], index) => {
@@ -60,8 +86,34 @@ export async function GET() {
     console.log('Categories:', uniqueCategories.map(c => `${c.name} (${c.id})`).join(', '))
     return NextResponse.json({ categories: uniqueCategories })
   } catch (error) {
-    console.error("❌ Error fetching service categories:", error)
-    return NextResponse.json({ error: "Failed to fetch service categories" }, { status: 500 })
+    console.error("❌ Error fetching service categories:", error);
+    
+    // Handle specific error types
+    if (error instanceof Error) {
+      if (error.message === 'Service categories query timed out') {
+        return NextResponse.json({ 
+          error: 'Database query timed out',
+          details: 'The request took too long to process'
+        }, { status: 504 });
+      }
+
+      if ('code' in error && typeof error.code === 'string' && error.code.startsWith('P')) {
+        return NextResponse.json({ 
+          error: 'Database error occurred',
+          details: error.message
+        }, { status: 500 });
+      }
+
+      return NextResponse.json({ 
+        error: 'Failed to fetch service categories',
+        details: error.message 
+      }, { status: 500 });
+    }
+
+    return NextResponse.json({ 
+      error: 'Failed to fetch service categories',
+      details: 'Unknown error occurred'
+    }, { status: 500 });
   }
 }
 

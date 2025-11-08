@@ -83,7 +83,9 @@ export function StaffProvider({ children }: { children: React.ReactNode }) {
         })
 
         if (!response.ok) {
-          throw new Error(`Failed to fetch staff: ${response.status} ${response.statusText}`)
+          const errorText = await response.text()
+          console.error("API Error Response:", errorText)
+          throw new Error(`Failed to fetch staff: ${response.status} ${response.statusText} - ${errorText}`)
         }
 
         const data = await response.json()
@@ -92,7 +94,7 @@ export function StaffProvider({ children }: { children: React.ReactNode }) {
         console.log("StaffProvider: Loaded", staffData.length, "staff members from API")
 
         // Validate staff data structure
-        const validStaff = staffData.filter(s => s && s.id && s.name)
+        const validStaff = staffData.filter((s: { id?: string; name?: string }) => s && s.id && s.name)
         if (validStaff.length !== staffData.length) {
           console.warn("StaffProvider: Some staff records are invalid, filtered from", staffData.length, "to", validStaff.length)
         }
@@ -154,7 +156,7 @@ export function StaffProvider({ children }: { children: React.ReactNode }) {
       const freshStaff = data.staff || []
 
       // Validate staff data structure
-      const validStaff = freshStaff.filter(s => s && s.id && s.name)
+      const validStaff = freshStaff.filter((s: { id?: string; name?: string }) => s && s.id && s.name)
       if (validStaff.length !== freshStaff.length) {
         console.warn("StaffProvider: Some staff records are invalid during refresh, filtered from", freshStaff.length, "to", validStaff.length)
       }
