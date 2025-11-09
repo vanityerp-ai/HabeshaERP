@@ -237,6 +237,7 @@ model Appointment {
   totalPrice       Decimal           // Specify precision for monetary values
   status           String            @default("PENDING") // AppointmentStatus @default(PENDING)
   notes            String?           // Using Text type for potentially long content
+  statusHistory    String?           // JSON string storing status change history
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 

@@ -223,8 +223,23 @@ export default function AppointmentsPage() {
           console.log(`AppointmentsPage: Removed ${allAppointments.length - uniqueAppointments.length} duplicate appointments`);
         }
 
-        // Set the appointments state
-        setAppointments(uniqueAppointments);
+        // IMPORTANT: Merge with existing state instead of replacing
+        // This prevents newly created appointments from disappearing
+        setAppointments(prevAppointments => {
+          // Create a map of existing appointments by ID
+          const existingMap = new Map(prevAppointments.map(apt => [apt.id, apt]));
+
+          // Merge: keep existing appointments and add/update from API
+          const mergedMap = new Map(existingMap);
+          uniqueAppointments.forEach(apt => {
+            mergedMap.set(apt.id, apt);
+          });
+
+          const mergedAppointments = Array.from(mergedMap.values());
+          console.log(`AppointmentsPage: Merged appointments - Previous: ${prevAppointments.length}, API: ${uniqueAppointments.length}, Final: ${mergedAppointments.length}`);
+
+          return mergedAppointments;
+        });
 
         // Check for missing transactions after appointments are loaded
         setTimeout(() => {
@@ -242,7 +257,15 @@ export default function AppointmentsPage() {
           new Map(allAppointments.map(apt => [apt.id, apt])).values()
         );
 
-        setAppointments(uniqueAppointments);
+        // Merge with existing state
+        setAppointments(prevAppointments => {
+          const existingMap = new Map(prevAppointments.map(apt => [apt.id, apt]));
+          const mergedMap = new Map(existingMap);
+          uniqueAppointments.forEach(apt => {
+            mergedMap.set(apt.id, apt);
+          });
+          return Array.from(mergedMap.values());
+        });
 
         setTimeout(() => {
           checkAndCreateMissingTransactions(uniqueAppointments);
@@ -465,9 +488,16 @@ export default function AppointmentsPage() {
     }
 
     // Use the appointment service to update the appointment
+    // Only send the status field to avoid sending fields that don't exist in the database
     const appointmentToUpdate = updatedAppointments.find(a => a.id === appointmentId);
     if (appointmentToUpdate) {
-      updateAppointment(appointmentId, appointmentToUpdate).catch(error => {
+      updateAppointment(appointmentId, {
+        status: newStatus,
+        // Include other fields that might have been updated
+        ...(appointmentToUpdate.paymentMethod && { paymentMethod: appointmentToUpdate.paymentMethod }),
+        ...(appointmentToUpdate.paymentStatus && { paymentStatus: appointmentToUpdate.paymentStatus }),
+        ...(appointmentToUpdate.paymentDate && { paymentDate: appointmentToUpdate.paymentDate }),
+      }).catch(error => {
         console.error("Error updating appointment:", error);
       });
       console.log("AppointmentsPage: Updated appointment status via service", appointmentId, newStatus);
@@ -478,8 +508,8 @@ export default function AppointmentsPage() {
       const animationClearedAppointments = updatedAppointments.map((appointment) => {
         if (appointment.id === appointmentId) {
           const clearedAppointment = { ...appointment, justUpdated: false };
-          // Update in the appointment service
-          updateAppointment(appointmentId, clearedAppointment);
+          // No need to update in the appointment service for just clearing the animation flag
+          // This is a UI-only state that doesn't need to be persisted
           return clearedAppointment;
         }
         return appointment;
@@ -533,9 +563,38 @@ export default function AppointmentsPage() {
 
     console.log("AppointmentsPage: Added new appointment via service", appointmentWithHistory.id);
 
-    // Update the state with the new appointment
-    const updatedAppointments = [...appointments, appointmentWithHistory];
-    setAppointments(updatedAppointments);
+    // IMPORTANT: Update state immediately to show the appointment in the calendar
+    // Use a functional update to ensure we're working with the latest state
+    setAppointments(prevAppointments => {
+      // Check if appointment already exists (prevent duplicates)
+      const exists = prevAppointments.some(apt => apt.id === appointmentWithHistory.id);
+      if (exists) {
+        console.log("AppointmentsPage: Appointment already exists, not adding duplicate");
+        return prevAppointments;
+      }
+
+      console.log("AppointmentsPage: Adding new appointment to state", appointmentWithHistory.id);
+      return [...prevAppointments, appointmentWithHistory];
+    });
+
+    // CRITICAL FIX: Force an immediate refresh from the database to ensure the new appointment is visible
+    // This prevents the issue where appointments disappear after creation
+    console.log("🔄 AppointmentsPage: Forcing immediate refresh after appointment creation");
+    try {
+      const allAppointments = await getAllAppointmentsAsync();
+      console.log("AppointmentsPage: Immediate refresh loaded", allAppointments.length, "appointments");
+
+      // Remove duplicates
+      const uniqueAppointments = Array.from(
+        new Map(allAppointments.map(apt => [apt.id, apt])).values()
+      );
+
+      // Update state with fresh data from database
+      setAppointments(uniqueAppointments);
+    } catch (error) {
+      console.error("AppointmentsPage: Error during immediate refresh", error);
+      // Don't show error to user - the appointment is already in state
+    }
 
     // Different toast message based on appointment type
     if (newAppointment.type === "blocked") {

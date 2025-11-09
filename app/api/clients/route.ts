@@ -45,7 +45,7 @@ export async function GET(request: Request) {
       }
 
       return {
-        id: client.id,
+        id: client.userId, // Return User ID (not Client ID) for appointment creation
         name: client.name,
         email: client.user?.email || '',
         phone: client.phone || '',

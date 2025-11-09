@@ -105,28 +105,16 @@ const getEnhancedBookings = (appointments: any[] = [], locationNameFn: (id: stri
     }
 
     // Regular appointment processing
-    // Find the service details from real service data
-    // Use the services data passed as parameter
-    const realServices = servicesData || []
-    const service = realServices.find((s) =>
-      s.name === appointment.service ||
-      s.name.toLowerCase() === appointment.service?.toLowerCase()
-    ) // Removed fallback to mock services
+    // Use the price from the appointment record (not from the services catalog)
+    // This ensures we show the price that was agreed upon when the appointment was created
+    console.log(`✅ BOOKING SUMMARY: Processing appointment "${appointment.id}" with service "${appointment.service}" at price ${appointment.price}`)
 
-    // Debug logging for service lookup
-    if (!service) {
-      console.warn(`🔍 BOOKING SUMMARY: Service not found for "${appointment.service}"`)
-      console.log('Available real services:', realServices.map(s => s.name))
-    } else {
-      console.log(`✅ BOOKING SUMMARY: Found service "${service.name}" with price ${service.price}`)
-    }
-
-    // Create the main service item
+    // Create the main service item using data from the appointment
     const mainServiceItem: BookingItem = {
       id: `item-${appointment.id}-1`,
       type: "service",
       name: appointment.service,
-      price: service?.price || 0,
+      price: appointment.price || 0, // Use appointment price, not catalog price
       staff: appointment.staffName,
       staffId: appointment.staffId,
       duration: appointment.duration,
@@ -156,58 +144,18 @@ const getEnhancedBookings = (appointments: any[] = [], locationNameFn: (id: stri
     if (appointment.products && appointment.products.length > 0) {
       appointment.products.forEach((product: any, index: number) => {
         allItems.push({
-          id: `item-${appointment.id}-prod-${index}`,
+          id: product.id || `item-${appointment.id}-prod-${index}`,
           type: "product",
           name: product.name,
           price: product.price,
-          quantity: product.quantity,
-          unitPrice: product.unitPrice,
+          quantity: product.quantity || 1,
+          unitPrice: product.price, // Use the same price as unit price
         });
       });
     }
 
-    // If no additional services or products, add some random ones for demo purposes
-    if (!appointment.additionalServices && !appointment.products) {
-      // Create random additional items for demo purposes
-      const additionalItems: BookingItem[] = []
-
-      // Add 0-2 additional services
-      if (Math.random() > 0.5 && staffData.length > 0) {
-        const availableServices = realServices
-        const additionalService = availableServices[Math.floor(Math.random() * availableServices.length)]
-        const randomStaff = staffData[Math.floor(Math.random() * staffData.length)]
-        additionalItems.push({
-          id: `item-${appointment.id}-2`,
-          type: "service",
-          name: additionalService.name,
-          price: additionalService.price,
-          staff: randomStaff.name,
-          staffId: randomStaff.id,
-          duration: additionalService.duration,
-          completed: false,
-        })
-      }
-
-      // Add 0-3 products
-      const productCount = Math.floor(Math.random() * 3)
-      const productNames = ["Shampoo", "Conditioner", "Hair Spray", "Styling Gel", "Hair Mask"]
-      const productPrices = [24.99, 19.99, 15.99, 12.99, 29.99]
-
-      for (let i = 0; i < productCount; i++) {
-        const idx = Math.floor(Math.random() * productNames.length)
-        additionalItems.push({
-          id: `item-${appointment.id}-prod-${i}`,
-          type: "product",
-          name: productNames[idx],
-          price: productPrices[idx],
-          quantity: 1,
-          unitPrice: productPrices[idx],
-        })
-      }
-
-      // Add the random items to the allItems array
-      allItems.push(...additionalItems);
-    }
+    // ✅ REMOVED: Demo code that was adding random fake services and products
+    // This was causing data inconsistency between the appointment details dialog and booking summary
 
     // Map the status
     let mappedStatus: "confirmed" | "arrived" | "service-started" | "completed" | "cancelled" | "no-show"

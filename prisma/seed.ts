@@ -131,34 +131,45 @@ async function main() {
     }
   }
 
-  // Create 20 staff members with comprehensive HR data
-  console.log('👥 Creating 20 staff members...')
+  // Create 23 staff members with real HR data from Habesha Salon
+  console.log('👥 Creating 23 staff members...')
 
   const staffData = [
-    { name: 'Mekdes Abebe', email: 'mekdes@vanityhub.com', role: 'Stylist', empNo: 'VH001', qid: '28901234567', passport: 'ET1234567', locations: [0, 1] },
-    { name: 'Woyni Tade', email: 'woyni@vanityhub.com', role: 'Nail Artist', empNo: 'VH002', qid: '28902345678', passport: 'ET2345678', locations: [0, 2] },
-    { name: 'Maria Santos', email: 'maria@vanityhub.com', role: 'Beautician', empNo: 'VH003', qid: '28903456789', passport: 'PH3456789', locations: [1, 2] },
-    { name: 'Fatima Al-Zahra', email: 'fatima@vanityhub.com', role: 'Nail technician', empNo: 'VH004', qid: '28904567890', passport: 'QA4567890', locations: [0, 1, 2] },
-    { name: 'Jane Mussa', email: 'jane@vanityhub.com', role: 'Stylist', empNo: 'VH005', qid: '28905678901', passport: 'ET5678901', locations: [1, 2, 3] },
-    { name: 'Aisha Hassan', email: 'aisha@vanityhub.com', role: 'Beautician', empNo: 'VH006', qid: '28906789012', passport: 'SO6789012', locations: [0, 3] },
-    { name: 'Aster Bekele', email: 'aster@vanityhub.com', role: 'Nail Artist', empNo: 'VH007', qid: '28907890123', passport: 'ET7890123', locations: [2, 3] },
-    { name: 'Priya Sharma', email: 'priya@vanityhub.com', role: 'Stylist', empNo: 'VH008', qid: '28908901234', passport: 'IN8901234', locations: [0, 1] },
-    { name: 'Lina Abdullah', email: 'lina@vanityhub.com', role: 'Beautician', empNo: 'VH009', qid: '28909012345', passport: 'LB9012345', locations: [1, 2] },
-    { name: 'Zara Ahmed', email: 'zara@vanityhub.com', role: 'Nail technician', empNo: 'VH010', qid: '28910123456', passport: 'PK0123456', locations: [0, 2, 3] },
-    { name: 'Hanan Khalil', email: 'hanan@vanityhub.com', role: 'Stylist', empNo: 'VH011', qid: '28911234567', passport: 'EG1234567', locations: [1, 3] },
-    { name: 'Nour Mansour', email: 'nour@vanityhub.com', role: 'Beautician', empNo: 'VH012', qid: '28912345678', passport: 'SY2345678', locations: [0, 2] },
-    { name: 'Reem Al-Rashid', email: 'reem@vanityhub.com', role: 'Nail Artist', empNo: 'VH013', qid: '28913456789', passport: 'QA3456789', locations: [1, 2, 3] },
-    { name: 'Yasmin Farouk', email: 'yasmin@vanityhub.com', role: 'Stylist', empNo: 'VH014', qid: '28914567890', passport: 'EG4567890', locations: [0, 1, 3] },
-    { name: 'Amira Saleh', email: 'amira@vanityhub.com', role: 'Beautician', empNo: 'VH015', qid: '28915678901', passport: 'JO5678901', locations: [2, 3] },
-    { name: 'Layla Mahmoud', email: 'layla@vanityhub.com', role: 'Nail technician', empNo: 'VH016', qid: '28916789012', passport: 'LB6789012', locations: [0, 1] },
-    { name: 'Dina Habib', email: 'dina@vanityhub.com', role: 'Stylist', empNo: 'VH017', qid: '28917890123', passport: 'EG7890123', locations: [1, 2] },
-    { name: 'Sara Al-Zahra', email: 'sara@vanityhub.com', role: 'Beautician', empNo: 'VH018', qid: '28918901234', passport: 'QA8901234', locations: [0, 2, 3] },
-    { name: 'Mona Kassem', email: 'mona@vanityhub.com', role: 'Nail Artist', empNo: 'VH019', qid: '28919012345', passport: 'SY9012345', locations: [1, 3] },
-    { name: 'Rana Othman', email: 'rana@vanityhub.com', role: 'Stylist', empNo: 'VH020', qid: '28920123456', passport: 'JO0123456', locations: [0, 1, 2] }
+    { name: 'Tsedey Asefa', email: 'Tsedey@habeshasalon.com', phone: '77798124', role: 'Admin', empNo: '9100', qid: '28623000532', passport: 'ep6252678', qidValidity: '01-12-25', passportValidity: '22-11-25', dob: '10-05-86', locations: [0, 1, 2, 3], homeService: true },
+    { name: 'Mekdes Bekele', email: 'mekdes@habeshasalon.com', phone: '33481527', role: 'Stylist', empNo: '9101', qid: '28623003433', passport: 'EP7832122', qidValidity: '01-12-25', passportValidity: '24-05-28', dob: '23-02-86', locations: [0], homeService: true },
+    { name: 'Aster Tarekegn', email: 'aster@habeshasalon.com', phone: '66868083', role: 'Stylist', empNo: '9102', qid: '29023002985', passport: 'EP6586158', qidValidity: '26-08-26', passportValidity: '13-07-26', dob: '04-09-90', locations: [0], homeService: true },
+    { name: 'Gelila Asrat', email: 'gelila@habeshasalon.com', phone: '51101385', role: 'Nail Artist', empNo: '9103', qid: '30023001427', passport: 'EQ2036945', qidValidity: '07-05-26', passportValidity: '17-02-30', dob: '28-01-00', locations: [0], homeService: true },
+    { name: 'Samri Tufa', email: 'samri@habeshasalon.com', phone: '50579597', role: 'Nail Artist', empNo: '9104', qid: '29423002678', passport: 'EP6949093', qidValidity: '21-01-26', passportValidity: '08-03-27', dob: '07-08-94', locations: [0], homeService: true },
+    { name: 'Vida Agbali', email: 'Vida@habeshasalon.com', phone: '31407033', role: 'Stylist', empNo: '9105', qid: '29228801597', passport: 'G2323959', qidValidity: '21-04-26', passportValidity: '21-01-31', dob: '25-10-92', locations: [0], homeService: true },
+    { name: 'Genet Yifru', email: 'genet@habeshasalon.com', phone: '50085617', role: 'Pedecurist', empNo: '9106', qid: '28023003513', passport: 'EP7405867', qidValidity: '25-02-26', passportValidity: '13-12-27', dob: '19-07-80', locations: [0], homeService: true },
+    { name: 'Woyni Tilahun', email: 'Woyni@habeshasalon.com', phone: '33378522', role: 'Stylist', empNo: '9107', qid: '28723005500', passport: 'EP', qidValidity: '17-09-25', passportValidity: '20-10-27', dob: '12-07-87', locations: [2], homeService: true },
+    { name: 'Habtam Wana', email: 'habtam@habeshasalon.com', phone: '59996537', role: 'Stylist', empNo: '9108', qid: '28923005645', passport: 'EP6217793', qidValidity: '25-02-26', passportValidity: '18-10-25', dob: '20-09-89', locations: [2], homeService: true },
+    { name: 'Jeri Hameso', email: 'Jeri@habeshasalon.com', phone: '70365925', role: 'Stylist', empNo: '9109', qid: '29023004807', passport: 'EP8743913', qidValidity: '09-07-25', passportValidity: '17-03-29', dob: '20-10-90', locations: [2], homeService: true },
+    { name: 'Beti-MK', email: 'beti@habeshasalon.com', phone: '66830977', role: 'Stylist', empNo: '9110', qid: '', passport: '', qidValidity: '', passportValidity: '', dob: '', locations: [2], homeService: true },
+    { name: 'Ruth Tadesse', email: 'Ruth@habeshasalon.com', phone: '50227010', role: 'Beautician', empNo: '9111', qid: '28923005561', passport: 'EP6757286', qidValidity: '28-02-26', passportValidity: '22-10-26', dob: '18-7-89', locations: [1], homeService: false },
+    { name: 'Elsa Melaku', email: 'Elsa@habeshasalon.com', phone: '50104456', role: 'Sylist and Nail technician', empNo: '9112', qid: '27923002347', passport: 'EP7085203', qidValidity: '11-07-27', passportValidity: '19-06-27', dob: '10-11-79', locations: [1], homeService: false },
+    { name: 'Titi Leakemaryam', email: 'Titi@habeshasalon.com', phone: '59991432', role: 'Stylist', empNo: '9113', qid: '28723007773', passport: 'EP6197364', qidValidity: '13-03-26', passportValidity: '19-08-25', dob: '09-10-87', locations: [1], homeService: true },
+    { name: 'Yenu Aschalew', email: 'Yenu@habeshasalon.com', phone: '30614686', role: 'Beautician', empNo: '9114', qid: '28023003515', passport: 'EP7979493', qidValidity: '14-05-26', passportValidity: '01-04-28', dob: '22-02-80', locations: [1], homeService: false },
+    { name: 'Frie Bahru', email: 'frie@habeshasalon.com', phone: '51179966', role: 'Beautician', empNo: '9115', qid: '29123003741', passport: 'EP7212333', qidValidity: '15-01-26', passportValidity: '17-07-27', dob: '29-01-91', locations: [1], homeService: true },
+    { name: 'Zed Teklay', email: 'zed@habeshasalon.com', phone: '50764570', role: 'Stylist', empNo: '9116', qid: '29523002064', passport: 'EP8133993', qidValidity: '12-10-25', passportValidity: '07-10-28', dob: '16-05-95', locations: [1], homeService: true },
+    { name: 'Beti Thomas', email: 'beti@habeshasalon.com', phone: '30732501', role: 'Stylist', empNo: '9117', qid: '29123002832', passport: 'EP6689476', qidValidity: '02-05-26', passportValidity: '13-9-26', dob: '12-09-91', locations: [1], homeService: true },
+    { name: 'Maya Gebrezgi', email: 'maya@habeshasalon.com', phone: '51337449', role: 'Stylist', empNo: '9118', qid: '222025002506', passport: '', qidValidity: '', passportValidity: '', dob: '', locations: [1], homeService: true },
+    { name: 'Tirhas Tajebe', email: 'tirhas@habeshasalon.com', phone: '', role: 'Nail Artist', empNo: '9119', qid: '382025419997', passport: '', qidValidity: '', passportValidity: '', dob: '', locations: [1], homeService: true },
+    { name: 'Tsigereda Esayas', email: 'tsigereda@habeshasalon.com', phone: '55849079', role: 'Stylist', empNo: '9120', qid: '382024482060', passport: '', qidValidity: '', passportValidity: '', dob: '', locations: [1], homeService: true },
+    { name: 'Shalom Kuna', email: 'shalom@habeshasalon.com', phone: '551011295', role: 'Beautician', empNo: '9121', qid: '29135634320', passport: '', qidValidity: '', passportValidity: '', dob: '', locations: [1], homeService: true },
+    { name: 'Samrawit Legese', email: 'samrawit@habeshasalon.com', phone: '33462505', role: 'Sales', empNo: '9122', qid: '', passport: '', qidValidity: '', passportValidity: '', dob: '', locations: [4], homeService: true }
   ]
 
   const staffMembers = []
   const staffPassword = await bcrypt.hash('staff123', 10)
+
+  // Helper function to parse date strings
+  const parseDate = (dateStr: string) => {
+    if (!dateStr) return null
+    const [day, month, year] = dateStr.split('-')
+    const fullYear = year.length === 2 ? `19${year}` : year
+    return new Date(`${fullYear}-${month}-${day}`)
+  }
 
   for (let i = 0; i < staffData.length; i++) {
     const staff = staffData[i]
@@ -173,70 +184,105 @@ async function main() {
         data: {
           email: staff.email,
           password: staffPassword,
-          role: 'STAFF',
+          role: staff.role === 'Admin' ? 'ADMIN' : 'STAFF',
         },
       })
     }
 
-    // Create staff member with HR data
-    const staffMember = await prisma.staffMember.create({
-      data: {
-        userId: staffUser.id,
-        name: staff.name,
-        phone: `+974 1234 ${5680 + i}`,
-        jobRole: staff.role,
-        employeeNumber: staff.empNo,
-        qidNumber: staff.qid,
-        passportNumber: staff.passport,
-        qidValidity: '12-25-26', // Sample validity date
-        passportValidity: '06-30-27', // Sample validity date
-        medicalValidity: '03-15-26', // Sample validity date
-        color: `hsl(${(i * 137.5) % 360}, 70%, 50%)`, // Generate unique colors
-        homeService: staff.locations.includes(3), // Home service if assigned to location index 3
-        status: 'ACTIVE',
-        dateOfBirth: new Date(1985 + (i % 15), (i % 12), (i % 28) + 1), // Sample birth dates
-      },
+    // Check if staff member already exists for this user
+    const existingStaff = await prisma.staffMember.findUnique({
+      where: { userId: staffUser.id }
     })
+
+    let staffMember
+    if (existingStaff) {
+      staffMember = existingStaff
+      console.log(`ℹ️ Staff member ${staff.name} already exists`)
+    } else {
+      // Create staff member with real HR data
+      staffMember = await prisma.staffMember.create({
+        data: {
+          userId: staffUser.id,
+          name: staff.name,
+          phone: staff.phone ? `+974 ${staff.phone}` : undefined,
+          jobRole: staff.role,
+          employeeNumber: staff.empNo,
+          qidNumber: staff.qid || undefined,
+          passportNumber: staff.passport || undefined,
+          qidValidity: staff.qidValidity || undefined,
+          passportValidity: staff.passportValidity || undefined,
+          medicalValidity: '01-01-26', // All staff have same medical validity
+          color: `hsl(${(i * 137.5) % 360}, 70%, 50%)`, // Generate unique colors
+          homeService: staff.homeService,
+          status: 'ACTIVE',
+          dateOfBirth: parseDate(staff.dob),
+        },
+      })
+    }
 
     staffMembers.push({ member: staffMember, locationIndices: staff.locations })
   }
 
   // Create client users
   const client1Password = await bcrypt.hash('client123', 10)
-  const client1User = await prisma.user.create({
-    data: {
-      email: 'client1@example.com',
-      password: client1Password,
-      role: 'CLIENT',
-    },
+  let client1User = await prisma.user.findUnique({
+    where: { email: 'client1@example.com' }
   })
 
-  const client1 = await prisma.client.create({
-    data: {
-      userId: client1User.id,
-      name: 'Emma Wilson',
-      phone: '+974 1234 5682',
-      preferences: 'Prefers morning appointments',
-    },
+  if (!client1User) {
+    client1User = await prisma.user.create({
+      data: {
+        email: 'client1@example.com',
+        password: client1Password,
+        role: 'CLIENT',
+      },
+    })
+  }
+
+  let client1 = await prisma.client.findUnique({
+    where: { userId: client1User.id }
   })
+
+  if (!client1) {
+    client1 = await prisma.client.create({
+      data: {
+        userId: client1User.id,
+        name: 'Emma Wilson',
+        phone: '+974 1234 5682',
+        preferences: 'Prefers morning appointments',
+      },
+    })
+  }
 
   const client2Password = await bcrypt.hash('client123', 10)
-  const client2User = await prisma.user.create({
-    data: {
-      email: 'client2@example.com',
-      password: client2Password,
-      role: 'CLIENT',
-    },
+  let client2User = await prisma.user.findUnique({
+    where: { email: 'client2@example.com' }
   })
 
-  const client2 = await prisma.client.create({
-    data: {
-      userId: client2User.id,
-      name: 'Fatima Al-Rashid',
-      phone: '+974 1234 5683',
-      preferences: 'Allergic to certain hair products',
-    },
+  if (!client2User) {
+    client2User = await prisma.user.create({
+      data: {
+        email: 'client2@example.com',
+        password: client2Password,
+        role: 'CLIENT',
+      },
+    })
+  }
+
+  let client2 = await prisma.client.findUnique({
+    where: { userId: client2User.id }
   })
+
+  if (!client2) {
+    client2 = await prisma.client.create({
+      data: {
+        userId: client2User.id,
+        name: 'Fatima Al-Rashid',
+        phone: '+974 1234 5683',
+        preferences: 'Allergic to certain hair products',
+      },
+    })
+  }
 
   // Link staff to locations
   console.log('🔗 Linking staff to locations...')
@@ -261,40 +307,63 @@ async function main() {
     // Assign services based on role
     const serviceAssignments = []
 
-    if (role === 'Stylist') {
+    if (role === 'Stylist' || role === 'Sylist and Nail technician') {
       // Stylists get hair services
       const hairServices = services.filter(s =>
         s.category === 'Braiding' ||
         s.category === 'Hair Extension' ||
-        s.category === 'Styling' ||
+        s.category === 'Hair Styling' ||
         s.category === 'Hair Treatment' ||
-        s.category === 'Color'
+        s.category === 'Hair Color'
       )
-      serviceAssignments.push(...hairServices.slice(0, 10)) // Limit to 10 services per stylist
-    } else if (role === 'Nail Artist' || role === 'Nail technician') {
+      serviceAssignments.push(...hairServices)
+    }
+
+    if (role === 'Nail Artist' || role === 'Sylist and Nail technician') {
       // Nail specialists get nail services
       const nailServices = services.filter(s => s.category === 'Nail')
       serviceAssignments.push(...nailServices)
-    } else if (role === 'Beautician') {
+    }
+
+    if (role === 'Beautician') {
       // Beauticians get beauty services
       const beautyServices = services.filter(s =>
-        s.category === 'Eyelash' ||
-        s.category === 'Threading' ||
+        s.category === 'Eyelash & Threading' ||
         s.category === 'Waxing' ||
         s.category === 'Henna' ||
         s.category === 'Massage And Spa'
       )
-      serviceAssignments.push(...beautyServices.slice(0, 8)) // Limit to 8 services per beautician
+      serviceAssignments.push(...beautyServices)
     }
+
+    if (role === 'Pedecurist') {
+      // Pedecurists get nail services (pedicure/manicure)
+      const nailServices = services.filter(s => s.category === 'Nail')
+      serviceAssignments.push(...nailServices)
+    }
+
+    // Admin and Sales roles don't get service assignments
 
     // Create staff-service associations
     for (const service of serviceAssignments) {
-      await prisma.staffService.create({
-        data: {
-          staffId: staffInfo.member.id,
-          serviceId: service.id,
-        },
+      // Check if association already exists
+      const existing = await prisma.staffService.findUnique({
+        where: {
+          staffId_serviceId: {
+            staffId: staffInfo.member.id,
+            serviceId: service.id,
+          }
+        }
       })
+
+      if (!existing) {
+        await prisma.staffService.create({
+          data: {
+            staffId: staffInfo.member.id,
+            serviceId: service.id,
+          },
+        })
+      }
     }
   }
 
@@ -348,11 +417,11 @@ async function main() {
 
   console.log('✅ Database seeding completed successfully!')
   console.log('📊 Created:')
-  console.log('  - 23 users (1 admin, 20 staff, 2 clients)')
+  console.log(`  - ${staffData.length + 3} users (1 admin, ${staffData.length} staff, 2 clients)`)
   console.log('  - 5 locations (D-ring road, Muaither, Medinat Khalifa, Home service, Online store)')
   console.log(`  - ${realServiceData.length} real salon services`)
   console.log(`  - ${realServiceData.length * 4} location-service associations (excluding online store)`)
-  console.log('  - 20 staff members with comprehensive HR data')
+  console.log(`  - ${staffData.length} staff members with real HR data from Habesha Salon`)
   console.log('  - 1 sample appointment')
   console.log('  - 2 loyalty programs')
 

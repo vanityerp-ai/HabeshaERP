@@ -666,22 +666,25 @@ export function EnhancedAppointmentDetailsDialog({
                     <div className="w-full">
                       <h4 className="font-medium">Services</h4>
                       <div className="text-sm text-gray-600 space-y-2 mt-1">
-                        {/* Main service */}
-                        <div className="flex justify-between">
-                          <span className="font-medium">{appointment.service}</span>
-                          <span className="font-medium"><CurrencyDisplay amount={typeof appointment.price === 'number' ? appointment.price : 0} /></span>
-                        </div>
-
-                        {/* Additional services */}
-                        {appointment.additionalServices && appointment.additionalServices.length > 0 && (
+                        {/* Display all services from additionalServices array */}
+                        {appointment.additionalServices && appointment.additionalServices.length > 0 ? (
                           <>
                             {appointment.additionalServices.map((service: any, index: number) => (
                               <div key={`service-${index}`} className="flex justify-between">
-                                <span>{service.name}</span>
-                                <span><CurrencyDisplay amount={typeof service.price === 'number' ? service.price : 0} /></span>
+                                <span className={index === 0 ? "font-medium" : ""}>{service.name || 'Unnamed Service'}</span>
+                                <span className={index === 0 ? "font-medium" : ""}><CurrencyDisplay amount={typeof service.price === 'number' ? service.price : 0} /></span>
                               </div>
                             ))}
                           </>
+                        ) : appointment.service ? (
+                          /* Fallback to main service if additionalServices is empty */
+                          <div className="flex justify-between">
+                            <span className="font-medium">{appointment.service}</span>
+                            <span className="font-medium"><CurrencyDisplay amount={typeof appointment.price === 'number' ? appointment.price : 0} /></span>
+                          </div>
+                        ) : (
+                          /* No services found */
+                          <div className="text-gray-400 italic">No services</div>
                         )}
                       </div>
                     </div>
@@ -699,7 +702,10 @@ export function EnhancedAppointmentDetailsDialog({
                       <div className="text-sm text-gray-600 space-y-2 mt-1">
                         {appointment.products.map((product: any, index: number) => (
                           <div key={`product-${index}`} className="flex justify-between">
-                            <span>{product.quantity ? `${product.quantity}x ${product.name}` : product.name}</span>
+                            <span>
+                              {product.quantity && product.quantity > 1 ? `${product.quantity}x ` : ''}
+                              {product.name || 'Unnamed Product'}
+                            </span>
                             <span><CurrencyDisplay amount={typeof product.price === 'number' ? product.price : 0} /></span>
                           </div>
                         ))}

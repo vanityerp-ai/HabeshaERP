@@ -181,6 +181,12 @@ export default function BookAppointmentPage() {
 
   // Refresh services and categories when the component mounts
   useEffect(() => {
+    // Don't refresh data if booking is successful
+    if (isBookingSuccess || bookingCompletedRef.current) {
+      console.log("🔄 Data refresh: Skipping because booking is complete");
+      return;
+    }
+
     refreshData().catch(err => {
       console.error("Failed to load services data:", err)
       toast({
@@ -189,7 +195,7 @@ export default function BookAppointmentPage() {
         variant: "destructive",
       })
     })
-  }, [refreshData, toast])
+  }, [refreshData, toast, isBookingSuccess])
 
   // Handle staff loading errors
   useEffect(() => {
@@ -574,6 +580,12 @@ export default function BookAppointmentPage() {
 
   // Refresh appointment data periodically to catch new appointments
   useEffect(() => {
+    // Don't run periodic refresh if booking is successful
+    if (isBookingSuccess || bookingCompletedRef.current) {
+      console.log("🔄 Periodic refresh: Skipping because booking is complete");
+      return;
+    }
+
     const refreshInterval = setInterval(() => {
       // Refresh appointment data to ensure we have the latest information
       initializeAppointmentService();
@@ -586,7 +598,7 @@ export default function BookAppointmentPage() {
     }, 30000); // Refresh every 30 seconds
 
     return () => clearInterval(refreshInterval);
-  }, [selectedDate, selectedTime, selectedStaff]);
+  }, [selectedDate, selectedTime, selectedStaff, isBookingSuccess]);
 
   // Update loyalty points when service changes
   useEffect(() => {
@@ -1392,42 +1404,44 @@ export default function BookAppointmentPage() {
               </Select>
             </div>
 
-            {/* Progress Steps */}
-            <div className="relative mb-8">
-              <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-gray-200 -translate-y-1/2"></div>
-              <div className="relative flex justify-between">
-                {[1, 2, 3, 4, 5, 6, 7].map((step) => (
-                  <div key={step} className="flex flex-col items-center">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center z-10 ${
-                        step < currentStep
-                          ? "bg-green-500 text-white"
-                          : step === currentStep
-                            ? "bg-pink-600 text-white"
-                            : "bg-gray-200 text-gray-500"
-                      }`}
-                    >
-                      {step < currentStep ? (
-                        <Check className="h-4 w-4" />
-                      ) : (
-                        step
-                      )}
+            {/* Progress Steps - Hide on success screen */}
+            {!isBookingSuccess && currentStep !== 8 && (
+              <div className="relative mb-8">
+                <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-gray-200 -translate-y-1/2"></div>
+                <div className="relative flex justify-between">
+                  {[1, 2, 3, 4, 5, 6, 7].map((step) => (
+                    <div key={step} className="flex flex-col items-center">
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center z-10 ${
+                          step < currentStep
+                            ? "bg-green-500 text-white"
+                            : step === currentStep
+                              ? "bg-pink-600 text-white"
+                              : "bg-gray-200 text-gray-500"
+                        }`}
+                      >
+                        {step < currentStep ? (
+                          <Check className="h-4 w-4" />
+                        ) : (
+                          step
+                        )}
+                      </div>
+                      <span className={`text-xs mt-1 ${
+                        step === currentStep ? "text-pink-600 font-medium" : "text-gray-500"
+                      }`}>
+                        {step === 1 ? "Date" :
+                         step === 2 ? "Time" :
+                         step === 3 ? "Category" :
+                         step === 4 ? "Service" :
+                         step === 5 ? "Stylist" :
+                         step === 6 ? "Your Info" :
+                         "Confirm"}
+                      </span>
                     </div>
-                    <span className={`text-xs mt-1 ${
-                      step === currentStep ? "text-pink-600 font-medium" : "text-gray-500"
-                    }`}>
-                      {step === 1 ? "Date" :
-                       step === 2 ? "Time" :
-                       step === 3 ? "Category" :
-                       step === 4 ? "Service" :
-                       step === 5 ? "Stylist" :
-                       step === 6 ? "Your Info" :
-                       "Confirm"}
-                    </span>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Step Content */}
             <Card className="mb-6 relative bg-white" style={{ backgroundImage: 'none !important' }}>

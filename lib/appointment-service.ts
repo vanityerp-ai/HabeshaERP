@@ -65,7 +65,14 @@ const CACHE_DURATION = 30000; // 30 seconds
  */
 async function fetchAppointmentsFromAPI(): Promise<AppointmentData[]> {
   try {
-    const response = await fetch('/api/appointments');
+    // Add cache busting parameter to ensure fresh data
+    const cacheBuster = `_t=${Date.now()}`;
+    const response = await fetch(`/api/appointments?${cacheBuster}`, {
+      cache: 'no-store', // Disable Next.js caching
+      headers: {
+        'Cache-Control': 'no-cache', // Disable browser caching
+      }
+    });
     if (!response.ok) {
       throw new Error(`API error: ${response.status}`);
     }
@@ -237,20 +244,13 @@ async function updateAppointmentInAPI(appointment: AppointmentData): Promise<App
 
 /**
  * Delete an appointment from the database via API
+ *
+ * ⚠️ DEPRECATED: Appointments cannot be deleted, only cancelled
+ * This function is disabled to enforce data retention requirements
  */
 async function deleteAppointmentFromAPI(appointmentId: string): Promise<void> {
-  try {
-    const response = await fetch(`/api/appointments?id=${appointmentId}`, {
-      method: 'DELETE',
-    });
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
-  } catch (error) {
-    console.error('AppointmentService: Error deleting from API', error);
-    throw error;
-  }
+  console.error('🚫 deleteAppointmentFromAPI: Deletion is not allowed. Use cancellation instead.');
+  throw new Error('Appointments cannot be deleted. Please cancel the appointment instead by updating its status to "cancelled".');
 }
 
 /**
@@ -311,31 +311,147 @@ export async function validateStaffAvailability(
  * Add a new appointment with availability validation
  */
 export async function addAppointmentWithValidation(appointment: AppointmentData): Promise<{ success: boolean; appointment?: AppointmentData; error?: string }> {
+  console.log('🔍 addAppointmentWithValidation called with:', appointment);
+  console.log('🔍 Appointment fields:', {
+    clientId: appointment.clientId,
+    staffId: appointment.staffId,
+    location: appointment.location,
+    date: appointment.date,
+    duration: appointment.duration,
+    price: appointment.price
+  });
+
   // Validate staff availability across all locations
   const validation = await validateStaffAvailability(appointment);
 
   if (!validation.isValid) {
+    const errorMessage = validation.error || 'Staff member is not available for this time slot';
+    console.error('❌ Staff availability validation failed:', errorMessage);
+    console.error('❌ Validation details:', validation);
     return {
       success: false,
-      error: validation.error
+      error: errorMessage
     };
   }
 
-  // If validation passes, create the appointment
-  const createdAppointment = addAppointment(appointment);
-
-  // Create reflected appointments for staff with home service capability
+  // IMPORTANT: Save to database via API first
   try {
-    await appointmentReflectionService.createReflectedAppointments(createdAppointment);
-  } catch (error) {
-    console.error('Error creating reflected appointments:', error);
-    // Don't fail the main appointment creation if reflection fails
-  }
+    // Normalize status to uppercase for Prisma schema compatibility
+    const normalizeStatus = (status?: string): string => {
+      if (!status) return 'PENDING';
+      const upperStatus = status.toUpperCase();
+      // Map common status values to Prisma enum values
+      const statusMap: Record<string, string> = {
+        'PENDING': 'PENDING',
+        'CONFIRMED': 'CONFIRMED',
+        'SCHEDULED': 'PENDING', // Map SCHEDULED to PENDING
+        'IN_PROGRESS': 'IN_PROGRESS',
+        'SERVICE-STARTED': 'IN_PROGRESS', // Map service-started to IN_PROGRESS
+        'COMPLETED': 'COMPLETED',
+        'CANCELLED': 'CANCELLED',
+        'NO_SHOW': 'NO_SHOW',
+        'ARRIVED': 'ARRIVED', // ✅ Keep ARRIVED as distinct status
+        'CHECKED-IN': 'ARRIVED', // Map checked-in to ARRIVED
+      };
+      return statusMap[upperStatus] || 'PENDING';
+    };
 
-  return {
-    success: true,
-    appointment: createdAppointment
-  };
+    const apiPayload = {
+      clientId: appointment.clientId,
+      staffId: appointment.staffId,
+      locationId: appointment.location,
+      date: appointment.date,
+      duration: appointment.duration,
+      totalPrice: appointment.price || 0,
+      notes: appointment.notes || '',
+      status: normalizeStatus(appointment.status),
+      bookingReference: appointment.bookingReference,
+      services: appointment.additionalServices || [],
+      products: appointment.products || [],
+    };
+
+    console.log('📤 Sending appointment to database API:', apiPayload);
+    console.log('📋 Original appointment object:', appointment);
+
+    // Validate required fields before sending
+    if (!apiPayload.clientId || !apiPayload.staffId || !apiPayload.locationId || !apiPayload.date || !apiPayload.duration) {
+      console.error('❌ Missing required fields in appointment:', {
+        clientId: apiPayload.clientId,
+        staffId: apiPayload.staffId,
+        locationId: apiPayload.locationId,
+        date: apiPayload.date,
+        duration: apiPayload.duration
+      });
+      return {
+        success: false,
+        error: `Missing required fields: ${!apiPayload.clientId ? 'clientId ' : ''}${!apiPayload.staffId ? 'staffId ' : ''}${!apiPayload.locationId ? 'locationId ' : ''}${!apiPayload.date ? 'date ' : ''}${!apiPayload.duration ? 'duration' : ''}`
+      };
+    }
+
+    const response = await fetch('/api/appointments', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(apiPayload),
+    });
+
+    if (!response.ok) {
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        errorData = { error: 'Failed to parse error response', status: response.status, statusText: response.statusText };
+      }
+      console.error('❌ Failed to save appointment to database:', errorData);
+      console.error('❌ Response status:', response.status, response.statusText);
+      console.error('❌ Payload that was sent:', apiPayload);
+
+      // Return error instead of falling back to localStorage
+      // This ensures the user knows there's an issue
+      const errorMessage = errorData?.error || errorData?.details || `API error: ${response.status} ${response.statusText}`;
+      return {
+        success: false,
+        error: typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage)
+      };
+    }
+
+    const result = await response.json();
+    const dbAppointment = result.appointment;
+
+    console.log('✅ Appointment saved to database:', dbAppointment.id);
+
+    // Also save to localStorage as cache
+    const createdAppointment = addAppointment(appointment);
+
+    // Create reflected appointments for staff with home service capability
+    try {
+      await appointmentReflectionService.createReflectedAppointments(createdAppointment);
+    } catch (error) {
+      console.error('Error creating reflected appointments:', error);
+      // Don't fail the main appointment creation if reflection fails
+    }
+
+    return {
+      success: true,
+      appointment: createdAppointment
+    };
+  } catch (error) {
+    console.error('❌ Error saving appointment to database:', error);
+    console.error('❌ Error type:', typeof error);
+    console.error('❌ Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      error: error
+    });
+
+    // Return error instead of falling back to localStorage
+    const errorMessage = error instanceof Error ? error.message : 'Failed to save appointment to database';
+    return {
+      success: false,
+      error: errorMessage
+    };
+  }
 }
 
 /**
@@ -367,6 +483,12 @@ export function addAppointment(appointment: AppointmentData): AppointmentData {
 
   // Save appointments to all storage locations
   saveAppointments(allAppointments);
+
+  // IMPORTANT: Invalidate cache to force fresh fetch on next read
+  // This ensures the calendar sees the new appointment immediately
+  appointmentsCache = null;
+  cacheTimestamp = 0;
+  if (DEBUG) console.log('AppointmentService: Cache invalidated after adding appointment');
 
   // Emit real-time event for appointment creation
   if (existingIndex < 0) {
@@ -468,10 +590,39 @@ export async function updateAppointment(appointmentId: string, updates: Partial<
       updatedAt: new Date().toISOString()
     };
 
+    // IMPORTANT: Save to database via API first
+    try {
+      const response = await fetch('/api/appointments', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: appointmentId,
+          ...updates,
+        }),
+      });
+
+      if (response.ok) {
+        console.log('✅ Appointment updated in database:', appointmentId);
+      } else {
+        console.warn('⚠️ Failed to update appointment in database, updating localStorage only');
+      }
+    } catch (error) {
+      console.error('Error updating appointment in database:', error);
+      console.warn('⚠️ Updating localStorage only due to database error');
+    }
+
+    // Update in localStorage
     allAppointments[appointmentIndex] = updatedAppointment;
 
     // Save appointments to all storage locations
     saveAppointments(allAppointments);
+
+    // IMPORTANT: Invalidate cache to force fresh fetch on next read
+    appointmentsCache = null;
+    cacheTimestamp = 0;
+    if (DEBUG) console.log('AppointmentService: Cache invalidated after updating appointment');
 
     // Emit real-time event for appointment update
     const eventType = updates.status ? RealTimeEventType.APPOINTMENT_STATUS_CHANGED : RealTimeEventType.APPOINTMENT_UPDATED;
@@ -519,53 +670,20 @@ export async function updateAppointment(appointmentId: string, updates: Partial<
 
 /**
  * Delete an appointment
+ *
+ * ⚠️ DEPRECATED: Appointments cannot be deleted, only cancelled
+ * This function is disabled to enforce data retention and audit trail requirements
+ *
+ * @throws Error Always throws an error indicating deletion is not allowed
  */
 export async function deleteAppointment(appointmentId: string): Promise<boolean> {
-  if (DEBUG) console.log('AppointmentService: Deleting appointment', appointmentId);
+  console.error('🚫 deleteAppointment: Deletion attempt blocked for appointment:', appointmentId);
+  console.error('🚫 Appointments cannot be deleted. Please cancel the appointment instead.');
 
-  // Get all existing appointments
-  const allAppointments = getAllAppointments();
-
-  // Find the appointment to delete (for real-time event)
-  const appointmentToDelete = allAppointments.find(a => a.id === appointmentId);
-
-  // Filter out the appointment to delete
-  const filteredAppointments = allAppointments.filter(a => a.id !== appointmentId);
-
-  if (filteredAppointments.length < allAppointments.length) {
-    // Save appointments to all storage locations
-    saveAppointments(filteredAppointments);
-
-    // Emit real-time event for appointment deletion
-    if (appointmentToDelete) {
-      realTimeService.emitEvent(RealTimeEventType.APPOINTMENT_DELETED, {
-        appointmentId,
-        appointment: appointmentToDelete,
-        clientName: appointmentToDelete.clientName,
-        staffName: appointmentToDelete.staffName
-      }, {
-        source: 'AppointmentService',
-        userId: appointmentToDelete.staffId,
-        locationId: appointmentToDelete.location
-      });
-
-      // Delete reflected appointments if this is not a reflected appointment
-      if (!appointmentToDelete.isReflected) {
-        try {
-          await appointmentReflectionService.deleteReflectedAppointments(appointmentId);
-        } catch (error) {
-          console.error('Error deleting reflected appointments:', error);
-          // Don't fail the main appointment deletion if reflection deletion fails
-        }
-      }
-    }
-
-    if (DEBUG) console.log('AppointmentService: Appointment deleted successfully');
-    return true;
-  }
-
-  if (DEBUG) console.log('AppointmentService: Appointment not found for deletion');
-  return false;
+  throw new Error(
+    'Appointments cannot be deleted. Please cancel the appointment instead by updating its status to "cancelled". ' +
+    'This restriction ensures data retention and maintains a complete audit trail of all appointments.'
+  );
 }
 
 /**

@@ -506,7 +506,14 @@ export function NewAppointmentDialogV2({
   }
 
   const handleSubmit = async () => {
+    console.log("🚀 NEW VERSION - handleSubmit called - Form data:", formData);
+
     if (!formData.clientName || !formData.serviceId || !formData.staffId) {
+      console.log("❌ Validation failed - Missing fields:", {
+        clientName: formData.clientName,
+        serviceId: formData.serviceId,
+        staffId: formData.staffId
+      });
       toast({
         variant: "destructive",
         title: "Missing information",
@@ -541,26 +548,43 @@ export function NewAppointmentDialogV2({
         throw new Error("Service or staff not found")
       }
 
-      // Auto-register client if phone and name are provided
-      let clientId = `client-${Date.now()}`
-
-      if (formData.phone && formData.clientName) {
-        // Try to auto-register the client
-        const autoRegisteredClient = await autoRegisterClient({
-          name: formData.clientName,
-          email: formData.email,
-          phone: formData.phone,
-          source: "appointment_booking",
-          preferredLocation: formData.location
+      // Auto-register client - phone number is REQUIRED for database appointments
+      if (!formData.phone) {
+        toast({
+          title: "Phone number required",
+          description: "Please provide a phone number to create an appointment.",
+          variant: "destructive",
         })
-
-        if (autoRegisteredClient) {
-          clientId = autoRegisteredClient.id
-          console.log(`Auto-registered client: ${autoRegisteredClient.name} (${autoRegisteredClient.id})`)
-        } else {
-          console.log("Failed to auto-register client")
-        }
+        return
       }
+
+      // Try to auto-register the client
+      console.log('🔄 Auto-registering client:', {
+        name: formData.clientName,
+        phone: formData.phone,
+        email: formData.email
+      })
+
+      const autoRegisteredClient = await autoRegisterClient({
+        name: formData.clientName,
+        email: formData.email,
+        phone: formData.phone,
+        source: "appointment_booking",
+        preferredLocation: formData.location
+      })
+
+      if (!autoRegisteredClient) {
+        console.error("❌ Failed to auto-register client")
+        toast({
+          title: "Failed to create client",
+          description: "Unable to register client. Please try again.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const clientId = autoRegisteredClient.id
+      console.log(`✅ Auto-registered client: ${autoRegisteredClient.name} (${clientId})`)
 
       // Create a new appointment object
       const newAppointment = {
@@ -599,8 +623,11 @@ export function NewAppointmentDialogV2({
       console.log("✅ Staff availability validation passed")
 
       // Call the callback with the new appointment
+      console.log("📞 Calling onAppointmentCreated with:", newAppointment);
       if (onAppointmentCreated) {
         onAppointmentCreated(newAppointment)
+      } else {
+        console.warn("⚠️ onAppointmentCreated callback is not defined!");
       }
 
       // Trigger real-time client updates if a client was auto-registered

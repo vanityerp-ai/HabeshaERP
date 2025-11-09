@@ -195,10 +195,19 @@ export async function updateAppointmentStatus(id: string, status: AppointmentSta
   })
 }
 
+/**
+ * Delete an appointment
+ *
+ * ⚠️ DEPRECATED: Appointments cannot be deleted, only cancelled
+ * This function is disabled to enforce data retention requirements
+ *
+ * @throws Error Always throws an error indicating deletion is not allowed
+ */
 export async function deleteAppointment(id: string) {
-  return await prisma.appointment.delete({
-    where: { id }
-  })
+  console.error('🚫 deleteAppointment: Deletion attempt blocked for appointment:', id);
+  throw new Error(
+    'Appointments cannot be deleted. Please cancel the appointment instead by updating its status to "cancelled".'
+  );
 }
 
 export async function getAppointmentStats(filters?: {

@@ -6,8 +6,17 @@ export async function POST(request: Request) {
   try {
     const data = await request.json()
 
+    console.log('📝 /api/clients/create - Received data:', {
+      name: data.name,
+      phone: data.phone,
+      email: data.email,
+      source: data.registrationSource,
+      isAutoRegistered: data.isAutoRegistered
+    })
+
     // Validate required fields
     if (!data.name || !data.phone) {
+      console.error('❌ /api/clients/create - Missing required fields:', { name: data.name, phone: data.phone })
       return NextResponse.json(
         { error: "Name and phone are required" },
         { status: 400 }
@@ -40,17 +49,60 @@ export async function POST(request: Request) {
     if (phoneExists || nameExists) {
       const duplicateType = phoneExists ? 'phone' : 'name'
       const existingClient = phoneExists || nameExists
-      
+
+      console.log('⚠️ /api/clients/create - Duplicate found:', {
+        type: duplicateType,
+        existingClientId: existingClient?.id,
+        existingClientUserId: existingClient?.userId
+      })
+
+      // For auto-registration, return the existing client instead of an error
+      if (data.isAutoRegistered) {
+        console.log('✅ /api/clients/create - Returning existing client for auto-registration')
+
+        const responseClient = {
+          id: existingClient?.userId, // Return the User ID, not the Client ID
+          name: existingClient?.name,
+          email: existingClient?.user?.email || data.email || '',
+          phone: existingClient?.phone || '',
+          address: '',
+          city: '',
+          state: '',
+          birthday: existingClient?.dateOfBirth?.toISOString() || '',
+          preferredLocation: data.preferredLocation || 'loc1',
+          locations: data.locations || [data.preferredLocation || 'loc1'],
+          totalSpent: 0,
+          referredBy: '',
+          preferences: existingClient?.preferences ? JSON.parse(existingClient.preferences) : {
+            preferredStylists: [],
+            preferredServices: [],
+            allergies: [],
+            notes: ''
+          },
+          notes: existingClient?.notes || '',
+          registrationSource: 'existing',
+          isAutoRegistered: false,
+          currency: data.currency || 'QAR',
+          createdAt: existingClient?.createdAt.toISOString(),
+          updatedAt: existingClient?.updatedAt.toISOString()
+        }
+
+        return NextResponse.json({
+          client: responseClient,
+          message: "Existing client found"
+        })
+      }
+
       return NextResponse.json({
         error: "Duplicate client found",
         duplicateType,
         existingClient: {
-          id: existingClient?.id,
+          id: existingClient?.userId, // Return the User ID
           name: existingClient?.name,
           phone: existingClient?.phone,
           email: existingClient?.user?.email
         },
-        message: duplicateType === 'phone' 
+        message: duplicateType === 'phone'
           ? `A client with phone number ${data.phone} already exists.`
           : `A client with the name "${data.name}" already exists.`
       }, { status: 409 })
@@ -84,6 +136,12 @@ export async function POST(request: Request) {
       }
     })
 
+    console.log('✅ /api/clients/create - Created client:', {
+      clientId: client.id,
+      userId: user.id,
+      name: client.name
+    })
+
     // Create loyalty program for the client
     await prisma.loyaltyProgram.create({
       data: {
@@ -96,8 +154,9 @@ export async function POST(request: Request) {
     })
 
     // Transform the response to match the expected client format
+    // IMPORTANT: Return user.id (not client.id) because Appointment.clientId references User.id
     const responseClient = {
-      id: client.id,
+      id: user.id, // Return User ID for appointment creation
       name: client.name,
       email: user.email,
       phone: client.phone,

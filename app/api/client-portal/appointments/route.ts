@@ -5,6 +5,10 @@ import { addAppointment, getAllAppointments } from "@/lib/appointment-service";
 import { getUserFromHeaders, filterAppointmentsByLocationAccess } from "@/lib/auth-server";
 import { prisma } from "@/lib/prisma";
 
+// Disable caching for this route to ensure fresh appointment data
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 // Get all appointments or filter by client
 export async function GET(request: NextRequest) {
   try {
@@ -143,7 +147,12 @@ export async function GET(request: NextRequest) {
         });
       }
 
-      return NextResponse.json({ appointments: filteredAppointments });
+      // Add cache control headers to prevent stale data
+      const response = NextResponse.json({ appointments: filteredAppointments });
+      response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      response.headers.set('Pragma', 'no-cache');
+      response.headers.set('Expires', '0');
+      return response;
     }
   } catch (error) {
     console.error("Error fetching appointments:", error);

@@ -31,19 +31,19 @@ export class ConsolidatedTransactionService {
     if (!appointment) {
       throw new Error('Appointment data is required');
     }
-    
+
     if (!appointment.id) {
       throw new Error('Appointment ID is required');
     }
-    
+
     if (!appointment.clientName) {
       throw new Error('Client name is required');
     }
-    
-    if (!appointment.service) {
-      throw new Error('Service is required');
-    }
-    
+
+    // Service is optional - use a default if not provided
+    // Some appointments may not have services associated yet
+    const serviceName = appointment.service || 'General Appointment';
+
     if (!appointment.price || appointment.price <= 0) {
       throw new Error('Valid price is required');
     }
@@ -61,10 +61,11 @@ export class ConsolidatedTransactionService {
     let originalServiceAmount = 0;
 
     // Process main service
-    if (appointment.service && appointment.price) {
+    // Always create a service item if there's a price, using the serviceName (which has a default)
+    if (appointment.price) {
       const serviceItem: TransactionItem = {
-        id: `service-${appointment.service.toLowerCase().replace(/\s+/g, '-')}`,
-        name: appointment.service,
+        id: `service-${serviceName.toLowerCase().replace(/\s+/g, '-')}`,
+        name: serviceName,
         quantity: 1,
         unitPrice: appointment.price,
         totalPrice: appointment.price,
