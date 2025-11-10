@@ -27,7 +27,7 @@ import {
   History,
   RefreshCw
 } from "lucide-react"
-import { parseISO } from "date-fns"
+import { parseISO, format } from "date-fns"
 import { formatAppDate, formatAppTime } from "@/lib/date-utils"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
