@@ -214,7 +214,8 @@ export default function UserSettings() {
       { id: 'ADMIN', name: 'Super Admin', permissions: Object.values(PERMISSIONS) },
       { id: 'MANAGER', name: 'Organization Admin', permissions: ['view_dashboard', 'manage_appointments', 'view_reports'] },
       { id: 'STAFF', name: 'Location Manager', permissions: ['view_dashboard', 'manage_appointments'] },
-      { id: 'receptionist', name: 'Staff', permissions: ['view_dashboard', 'manage_appointments', 'view_pos'] }
+      { id: 'RECEPTIONIST', name: 'Receptionist', permissions: ['view_dashboard', 'manage_appointments', 'view_pos'] },
+      { id: 'SALES', name: 'Sales', permissions: ['view_pos', 'create_sale', 'view_inventory', 'create_inventory', 'transfer_inventory'] }
     ]
     setRoles(defaultRoles)
   }

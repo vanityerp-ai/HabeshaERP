@@ -112,10 +112,10 @@ export function AppointmentCalendar({
     : currentLocation === 'home'
       ? getActiveStaffWithHomeService()
       : getActiveStaffByLocation(currentLocation);
-  // Exclude admins, managers, and receptionists from availableStaff
+  // Exclude admins, managers, receptionists, and sales from availableStaff
   availableStaff = availableStaff.filter((staff: StaffMember) => {
     const role = (staff.role || "").toUpperCase();
-    return role !== "ADMIN" && role !== "MANAGER" && role !== "SUPER_ADMIN";
+    return role !== "ADMIN" && role !== "MANAGER" && role !== "SUPER_ADMIN" && role !== "RECEPTIONIST" && role !== "SALES";
   });
 
   // Use REAL ACTIVE staff list for filtering appointments - NO mock data

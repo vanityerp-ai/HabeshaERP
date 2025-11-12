@@ -2065,8 +2065,8 @@ export default function BookAppointmentPage() {
                             if (member.status !== 'Active') {
                               return false;
                             }
-                            // Exclude admin, super admin, and manager roles
-                            if (["ADMIN", "SUPER_ADMIN", "MANAGER"].includes((member.role || "").toUpperCase())) {
+                            // Exclude admin, super admin, manager, receptionist, and sales roles
+                            if (["ADMIN", "SUPER_ADMIN", "MANAGER", "RECEPTIONIST", "SALES"].includes((member.role || "").toUpperCase())) {
                               return false;
                             }
                             // For home service location, include staff with home service capability

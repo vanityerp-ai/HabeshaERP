@@ -14,25 +14,26 @@ import { v4 as uuidv4 } from 'uuid'
 
 // Map staff roles to user roles
 const staffRoleToUserRole: Record<string, string> = {
-  'super_admin': 'super_admin',
-  'org_admin': 'org_admin',
-  'location_manager': 'location_manager',
-  'stylist': 'staff',
-  'colorist': 'staff',
-  'nail_technician': 'staff',
-  'esthetician': 'staff',
-  'massage_therapist': 'staff',
-  'receptionist': 'receptionist',
-  'staff': 'staff'
+  'super_admin': 'ADMIN',
+  'org_admin': 'ADMIN',
+  'location_manager': 'MANAGER',
+  'receptionist': 'RECEPTIONIST',
+  'sales': 'SALES',
+  'stylist': 'STAFF',
+  'colorist': 'STAFF',
+  'nail_technician': 'STAFF',
+  'esthetician': 'STAFF',
+  'massage_therapist': 'STAFF',
+  'staff': 'STAFF'
 }
 
 // Map user roles to staff roles (default mapping)
 const userRoleToStaffRole: Record<string, string> = {
-  'super_admin': 'super_admin',
-  'org_admin': 'org_admin',
-  'location_manager': 'location_manager',
-  'staff': 'stylist',
-  'receptionist': 'receptionist'
+  'ADMIN': 'super_admin',
+  'MANAGER': 'location_manager',
+  'RECEPTIONIST': 'receptionist',
+  'SALES': 'sales',
+  'STAFF': 'stylist'
 }
 
 // Generate avatar initials from name

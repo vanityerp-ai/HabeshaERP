@@ -104,15 +104,16 @@ export function mapStaffRoleToUserRole(staffRole: string): string {
   const roleMapping: { [key: string]: string } = {
     'manager': 'MANAGER',
     'assistant_manager': 'MANAGER',
+    'receptionist': 'RECEPTIONIST',
+    'sales': 'SALES',
     'senior_stylist': 'STAFF',
     'stylist': 'STAFF',
     'colorist': 'STAFF',
     'nail_technician': 'STAFF',
     'esthetician': 'STAFF',
     'barber': 'STAFF',
-    'receptionist': 'STAFF',
     'trainee': 'STAFF'
   }
-  
+
   return roleMapping[staffRole.toLowerCase()] || 'STAFF'
 }

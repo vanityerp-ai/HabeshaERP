@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { useStaff } from "@/lib/staff-provider"
-import { Edit, Loader2, MoreHorizontal, Plus, Shield, Trash, UserPlus, MapPin, Building2 } from "lucide-react"
+import { Edit, Loader2, MoreHorizontal, Plus, Shield, Trash, UserPlus, MapPin, Building2, Eye, EyeOff } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -52,8 +52,15 @@ interface EditUserFormProps {
 }
 
 function EditUserForm({ user, roles, locations, onSave, onCancel, isSubmitting }: EditUserFormProps) {
+  const { toast } = useToast()
   const [formData, setFormData] = useState<User>({ ...user })
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false)
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false)
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
@@ -95,6 +102,71 @@ function EditUserForm({ user, roles, locations, onSave, onCancel, isSubmitting }
       : [...formData.locations, locationId]
 
     setFormData({ ...formData, locations: updatedLocations })
+  }
+
+  const handlePasswordChange = async () => {
+    if (!newPassword) {
+      toast({
+        title: "Error",
+        description: "Please enter a new password",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (newPassword.length < 8) {
+      toast({
+        title: "Error",
+        description: "Password must be at least 8 characters long",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: "Error",
+        description: "Passwords do not match",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      setIsUpdatingPassword(true)
+
+      const response = await fetch(`/api/users/${user.id}/password`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ newPassword }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to update password')
+      }
+
+      toast({
+        title: "Success",
+        description: "Password updated successfully"
+      })
+
+      setIsPasswordDialogOpen(false)
+      setNewPassword("")
+      setConfirmPassword("")
+    } catch (error) {
+      console.error("Error updating password:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update password",
+        variant: "destructive"
+      })
+    } finally {
+      setIsUpdatingPassword(false)
+    }
   }
 
   const colorOptions = [
@@ -207,6 +279,72 @@ function EditUserForm({ user, roles, locations, onSave, onCancel, isSubmitting }
             </div>
           ))}
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Password</Label>
+        <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+          <DialogTrigger asChild>
+            <Button type="button" variant="outline" className="w-full">
+              Change Password
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Change Password</DialogTitle>
+              <DialogDescription>
+                Enter a new password for {user.name}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="newPassword">New Password</Label>
+                <div className="relative">
+                  <Input
+                    id="newPassword"
+                    type={showNewPassword ? "text" : "password"}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  >
+                    {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirmNewPassword">Confirm Password</Label>
+                <div className="relative">
+                  <Input
+                    id="confirmNewPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsPasswordDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={handlePasswordChange} disabled={isUpdatingPassword}>
+                {isUpdatingPassword && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Update Password
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <DialogFooter>
@@ -487,6 +625,10 @@ function AddUserForm({ roles, locations, onSave, onCancel, isSubmitting }: AddUs
     avatar: "",
     color: "bg-blue-500",
   })
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const validateForm = () => {
@@ -506,6 +648,18 @@ function AddUserForm({ roles, locations, onSave, onCancel, isSubmitting }: AddUs
       newErrors.role = "Role is required"
     }
 
+    if (!password.trim()) {
+      newErrors.password = "Password is required"
+    } else if (password.length < 8) {
+      newErrors.password = "Password must be at least 8 characters"
+    }
+
+    if (!confirmPassword.trim()) {
+      newErrors.confirmPassword = "Please confirm password"
+    } else if (password !== confirmPassword) {
+      newErrors.confirmPassword = "Passwords do not match"
+    }
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -521,7 +675,7 @@ function AddUserForm({ roles, locations, onSave, onCancel, isSubmitting }: AddUs
         .toUpperCase()
         .slice(0, 2)
 
-      onSave({ ...formData, avatar })
+      onSave({ ...formData, avatar, password })
     }
   }
 
@@ -568,6 +722,50 @@ function AddUserForm({ roles, locations, onSave, onCancel, isSubmitting }: AddUs
             className={errors.email ? "border-red-500" : ""}
           />
           {errors.email && <p className="text-sm text-red-500">{errors.email}</p>}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="password">Password *</Label>
+          <div className="relative">
+            <Input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className={errors.password ? "border-red-500" : ""}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          {errors.password && <p className="text-sm text-red-500">{errors.password}</p>}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="confirmPassword">Confirm Password *</Label>
+          <div className="relative">
+            <Input
+              id="confirmPassword"
+              type={showConfirmPassword ? "text" : "password"}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className={errors.confirmPassword ? "border-red-500" : ""}
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+            >
+              {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          {errors.confirmPassword && <p className="text-sm text-red-500">{errors.confirmPassword}</p>}
         </div>
       </div>
 
@@ -1055,32 +1253,56 @@ export function UserSettings() {
     }
   }
 
-  const handleAddUser = async (newUserData: Omit<User, 'id'>) => {
+  const handleAddUser = async (newUserData: Omit<User, 'id'> & { password?: string }) => {
     try {
       setIsSubmitting(true)
+
+      // Create user in database with password
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: newUserData.name,
+          email: newUserData.email,
+          password: newUserData.password,
+          role: newUserData.role,
+          isActive: newUserData.status === 'Active'
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to create user')
+      }
+
+      // Create user object for local storage (without password)
       const newUser: User = {
         ...newUserData,
-        id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: result.user.id,
         lastLogin: undefined
       }
+      delete (newUser as any).password // Remove password from local storage
 
       // Add to local state
       const updatedUsers = [...localUsers, newUser]
       setLocalUsers(updatedUsers)
 
-      // Save to storage
+      // Save to storage (without password)
       SettingsStorage.saveUsers(updatedUsers)
 
       setIsAddUserDialogOpen(false)
       toast({
         title: "Success",
-        description: "User added successfully",
+        description: "User added successfully with password",
       })
     } catch (error) {
       console.error("Error adding user:", error)
       toast({
         title: "Error",
-        description: "Failed to add user",
+        description: error instanceof Error ? error.message : "Failed to add user",
         variant: "destructive",
       })
     } finally {

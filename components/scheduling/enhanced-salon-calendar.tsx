@@ -173,10 +173,10 @@ export function EnhancedSalonCalendar({
 
   // Get ACTIVE staff for the selected location using the provider's built-in filtering (excludes inactive/on-leave)
   let locationStaff = getActiveStaffByLocation(currentLocation);
-  // Exclude admins, managers, and receptionists from locationStaff
+  // Exclude admins, managers, receptionists, and sales from locationStaff
   locationStaff = locationStaff.filter(staff => {
     const role = (staff.role || "").toUpperCase();
-    return role !== "ADMIN" && role !== "MANAGER" && role !== "SUPER_ADMIN";
+    return role !== "ADMIN" && role !== "MANAGER" && role !== "SUPER_ADMIN" && role !== "RECEPTIONIST" && role !== "SALES";
   });
 
 

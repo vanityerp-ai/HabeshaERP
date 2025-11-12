@@ -13,7 +13,7 @@ interface User {
   id: string
   name: string
   email: string
-  role: "ADMIN" | "MANAGER" | "STAFF" | "CLIENT" | "receptionist"
+  role: "ADMIN" | "MANAGER" | "STAFF" | "CLIENT" | "RECEPTIONIST" | "SALES"
   locations: string[] // "all" or location IDs like "loc1", "loc2", etc.
 }
 
@@ -178,15 +178,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const getUserPermissions = (): string[] => {
     if (!user) return []
 
+    // Admin and Super Admin have unrestricted access - always return ALL permission
+    const userRoleUpper = user.role.toUpperCase()
+    if (userRoleUpper === 'ADMIN' || userRoleUpper === 'SUPER_ADMIN' || userRoleUpper === 'ORG_ADMIN') {
+      return [PERMISSIONS.ALL]
+    }
+
     // Get role permissions from our constants
-    const roleKey = user.role.toUpperCase() as keyof typeof ROLE_PERMISSIONS
+    const roleKey = userRoleUpper as keyof typeof ROLE_PERMISSIONS
     const permissions = ROLE_PERMISSIONS[roleKey] || []
 
-    // Get custom permissions from settings if they exist
+    // Get custom permissions from settings if they exist (for non-admin roles)
     const storedRoles = SettingsStorage.getRoles()
-    const userRole = storedRoles.find(role => role.id === user.role)
 
-    if (userRole && userRole.permissions) {
+    // Try case-insensitive matching for role ID
+    const userRole = storedRoles.find(role =>
+      role.id.toLowerCase() === user.role.toLowerCase()
+    )
+
+    if (userRole && userRole.permissions && userRole.permissions.length > 0) {
       // If the role has custom permissions defined in settings, use those
       return userRole.permissions
     }
@@ -199,19 +209,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const hasPermission = (permission: string): boolean => {
     if (!user) return false
 
-    // Special case for Receptionist role and POS access
-    if (user.role === 'receptionist' && permission === PERMISSIONS.VIEW_POS) {
+    // Special case for Receptionist role and POS access (case-insensitive)
+    if (user.role.toUpperCase() === 'RECEPTIONIST' && permission === PERMISSIONS.VIEW_POS) {
       return true
     }
 
     const permissions = getUserPermissions()
-
-    // Debug logging for permission checks
-    console.log(`🔐 Permission check for "${permission}":`)
-    console.log(`User role: ${user.role}`)
-    console.log(`User permissions:`, permissions)
-    console.log(`Has ALL permission: ${permissions.includes(PERMISSIONS.ALL)}`)
-    console.log(`Has specific permission: ${permissions.includes(permission)}`)
 
     // If user has ALL permission, they have access to everything
     if (permissions.includes(PERMISSIONS.ALL)) {
@@ -226,8 +229,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const hasAnyPermission = (permissionList: string[]): boolean => {
     if (!user) return false
 
-    // Special case for Receptionist role and POS access
-    if (user.role === 'receptionist' && permissionList.includes(PERMISSIONS.VIEW_POS)) {
+    // Special case for Receptionist role and POS access (case-insensitive)
+    if (user.role.toUpperCase() === 'RECEPTIONIST' && permissionList.includes(PERMISSIONS.VIEW_POS)) {
       return true
     }
 
@@ -236,15 +239,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // If user has ALL permission, they have access to everything
     if (permissions.includes(PERMISSIONS.ALL)) {
       return true
-    }
-
-    // Log permissions for debugging
-    if (permissionList.includes(PERMISSIONS.VIEW_POS)) {
-      console.log("Checking POS permissions:")
-      console.log("User role:", user.role)
-      console.log("User permissions:", permissions)
-      console.log("Required permissions:", permissionList)
-      console.log("Has VIEW_POS:", permissions.includes(PERMISSIONS.VIEW_POS))
     }
 
     // Check if the user has any of the permissions

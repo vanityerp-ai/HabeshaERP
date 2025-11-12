@@ -12,13 +12,18 @@ function mapStaffRoleToUserRole(staffRole: string): string {
     'location_manager': 'MANAGER',
     'manager': 'MANAGER',
 
+    // Receptionist role
+    'receptionist': 'RECEPTIONIST',
+
+    // Sales role
+    'sales': 'SALES',
+
     // Staff roles (all salon workers)
     'stylist': 'STAFF',
     'colorist': 'STAFF',
     'barber': 'STAFF',
     'nail_technician': 'STAFF',
     'esthetician': 'STAFF',
-    'receptionist': 'STAFF',
     'staff': 'STAFF',
 
     // Client role

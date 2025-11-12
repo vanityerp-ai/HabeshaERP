@@ -8,24 +8,29 @@ function mapStaffRoleToUserRole(staffRole: string): string {
     // Admin roles
     'super_admin': 'ADMIN',
     'org_admin': 'ADMIN',
-    
+
     // Manager roles
     'location_manager': 'MANAGER',
     'manager': 'MANAGER',
-    
+
+    // Receptionist role
+    'receptionist': 'RECEPTIONIST',
+
+    // Sales role
+    'sales': 'SALES',
+
     // Staff roles (all salon workers)
     'stylist': 'STAFF',
     'colorist': 'STAFF',
     'barber': 'STAFF',
     'nail_technician': 'STAFF',
     'esthetician': 'STAFF',
-    'receptionist': 'STAFF',
     'staff': 'STAFF',
-    
+
     // Client role
     'client': 'CLIENT'
   };
-  
+
   const normalizedRole = staffRole.toLowerCase().trim();
   return roleMapping[normalizedRole] || 'STAFF';
 }
