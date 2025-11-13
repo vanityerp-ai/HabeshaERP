@@ -209,9 +209,29 @@ export function EnhancedAppointmentDetailsDialog({
   const performStatusUpdate = (newStatus: ExtendedAppointmentStatus) => {
     setIsUpdating(true);
     try {
+      const timestamp = new Date().toISOString();
+
+      // Update the appointment with new status and status history
+      const updatedAppointment = {
+        ...appointment,
+        status: newStatus,
+        statusHistory: [
+          ...(appointment.statusHistory || []),
+          {
+            status: newStatus,
+            timestamp: timestamp,
+            updatedBy: 'Staff'
+          }
+        ]
+      };
+
+      // Notify parent components of the update
       if (onStatusChange) {
-        const timestamp = new Date().toISOString();
         onStatusChange(appointment.id, newStatus, timestamp);
+      }
+
+      if (onAppointmentUpdated) {
+        onAppointmentUpdated(updatedAppointment);
       }
 
       toast({
@@ -236,10 +256,13 @@ export function EnhancedAppointmentDetailsDialog({
   };
 
   // Handle payment completion
-  const handlePaymentComplete = (paymentMethod: string, giftCardCode?: string, giftCardAmount?: number, discountPercentage?: number, discountAmount?: number) => {
+  const handlePaymentComplete = async (paymentMethod: string, giftCardCode?: string, giftCardAmount?: number, discountPercentage?: number, discountAmount?: number) => {
     try {
       // Record the transaction
       recordAppointmentTransaction(paymentMethod, discountPercentage, discountAmount);
+
+      const originalAmount = calculateTotal();
+      const finalAmount = discountAmount ? originalAmount - discountAmount : originalAmount;
 
       // Update appointment with payment information AND status to completed
       const updatedAppointment = {
@@ -249,6 +272,10 @@ export function EnhancedAppointmentDetailsDialog({
         paymentMethod: paymentMethod,
         paymentDate: new Date().toISOString(),
         transactionRecorded: true, // Flag to prevent duplicate transaction creation
+        discountPercentage: discountPercentage || undefined,
+        discountAmount: discountAmount || undefined,
+        originalAmount: discountAmount ? originalAmount : undefined,
+        finalAmount: discountAmount ? finalAmount : undefined,
         statusHistory: [
           ...(appointment.statusHistory || []),
           {
@@ -267,6 +294,36 @@ export function EnhancedAppointmentDetailsDialog({
         total: calculateTotal()
       });
 
+      // Save payment information to database via API
+      try {
+        const response = await fetch('/api/appointments', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            id: appointment.id,
+            status: 'completed',
+            paymentStatus: 'paid',
+            paymentMethod: paymentMethod,
+            paymentDate: new Date().toISOString(),
+            discountPercentage: discountPercentage || undefined,
+            discountAmount: discountAmount || undefined,
+            originalAmount: discountAmount ? originalAmount : undefined,
+            finalAmount: discountAmount ? finalAmount : undefined,
+            statusHistory: updatedAppointment.statusHistory,
+          }),
+        });
+
+        if (response.ok) {
+          console.log('✅ Payment information saved to database');
+        } else {
+          console.warn('⚠️ Failed to save payment information to database');
+        }
+      } catch (error) {
+        console.error('Error saving payment information to database:', error);
+      }
+
       // Notify parent component of the update
       if (onAppointmentUpdated) {
         onAppointmentUpdated(updatedAppointment);
@@ -275,7 +332,6 @@ export function EnhancedAppointmentDetailsDialog({
       // Close payment dialog
       setIsPaymentDialogOpen(false);
 
-      const finalAmount = discountAmount ? calculateTotal() - discountAmount : calculateTotal();
       const description = discountAmount && discountAmount > 0
         ? `Payment of ${formatCurrency(finalAmount)} completed successfully (${discountPercentage}% discount applied: -${formatCurrency(discountAmount)}).`
         : `Payment of ${formatCurrency(finalAmount)} completed successfully.`;
@@ -476,25 +532,24 @@ export function EnhancedAppointmentDetailsDialog({
   const calculateTotal = () => {
     let total = 0;
 
-    // Add main service price
-    if (typeof appointment.price === 'number') {
-      total += appointment.price;
-    }
-
-    // Add additional services prices
+    // Calculate from individual services (preferred method)
     if (appointment.additionalServices && appointment.additionalServices.length > 0) {
       appointment.additionalServices.forEach((service: any) => {
         if (typeof service.price === 'number') {
           total += service.price;
         }
       });
+    } else if (typeof appointment.price === 'number') {
+      // Fallback to appointment.price only if no additionalServices
+      // This prevents double counting when both exist
+      total += appointment.price;
     }
 
     // Add products prices
     if (appointment.products && appointment.products.length > 0) {
       appointment.products.forEach((product: any) => {
         if (typeof product.price === 'number') {
-          total += product.price;
+          total += product.price * (product.quantity || 1);
         }
       });
     }
@@ -667,6 +722,25 @@ export function EnhancedAppointmentDetailsDialog({
                       <h4 className="font-medium">Services</h4>
                       <div className="text-sm text-gray-600 space-y-2 mt-1">
                         {/* Display all services from additionalServices array */}
+                        {(() => {
+                          // Debug logging to help identify service display issues
+                          console.log(`🔍 APPOINTMENT DETAILS: Displaying services for appointment "${appointment.id}"`, {
+                            hasAdditionalServices: !!(appointment.additionalServices && appointment.additionalServices.length > 0),
+                            additionalServicesCount: appointment.additionalServices?.length || 0,
+                            mainService: appointment.service,
+                            mainPrice: appointment.price
+                          });
+
+                          if (appointment.additionalServices && appointment.additionalServices.length > 0) {
+                            console.log(`📋 APPOINTMENT DETAILS: Rendering ${appointment.additionalServices.length} services from additionalServices array`);
+                            appointment.additionalServices.forEach((svc: any, idx: number) => {
+                              console.log(`  - Service ${idx + 1}: "${svc.name}" at price ${svc.price}`);
+                            });
+                          }
+
+                          return null; // This is just for logging
+                        })()}
+
                         {appointment.additionalServices && appointment.additionalServices.length > 0 ? (
                           <>
                             {appointment.additionalServices.map((service: any, index: number) => (
@@ -681,6 +755,12 @@ export function EnhancedAppointmentDetailsDialog({
                           <div className="flex justify-between">
                             <span className="font-medium">{appointment.service}</span>
                             <span className="font-medium"><CurrencyDisplay amount={typeof appointment.price === 'number' ? appointment.price : 0} /></span>
+                          </div>
+                        ) : appointment.price && appointment.price > 0 ? (
+                          /* Show service amount if price exists but no service name */
+                          <div className="flex justify-between">
+                            <span className="font-medium text-gray-500 italic">Service (details not available)</span>
+                            <span className="font-medium"><CurrencyDisplay amount={appointment.price} /></span>
                           </div>
                         ) : (
                           /* No services found */

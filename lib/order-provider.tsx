@@ -1,10 +1,11 @@
 "use client"
 
-import React, { createContext, useContext, useState, useEffect } from "react"
+import React, { createContext, useContext, useState, useEffect, useMemo } from "react"
 import { Order, OrderStatus, OrderFilter, OrderNotification, TrackingInfo } from "./order-types"
 import { OrderManagementService } from "./order-management-service"
 import { Transaction, TransactionStatus } from "./transaction-types"
 import { useTransactions } from "./transaction-provider"
+import { useAuth } from "./auth-provider"
 
 interface OrderContextType {
   orders: Order[];
@@ -29,8 +30,9 @@ interface OrderContextType {
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
 
 export function OrderProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth()
   const [orders, setOrders] = useState<Order[]>([]);
-  const [notifications, setNotifications] = useState<OrderNotification[]>([]);
+  const [allNotifications, setAllNotifications] = useState<OrderNotification[]>([]);
   const [orderService] = useState(() => OrderManagementService.getInstance());
 
   // Initialize orders and notifications
@@ -39,7 +41,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
     const initialNotifications = orderService.getNotifications();
 
     setOrders(initialOrders);
-    setNotifications(initialNotifications);
+    setAllNotifications(initialNotifications);
 
     // Subscribe to order updates
     const unsubscribeOrders = orderService.subscribe((updatedOrders) => {
@@ -48,7 +50,7 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
 
     // Subscribe to notification updates
     const unsubscribeNotifications = orderService.subscribeToNotifications((updatedNotifications) => {
-      setNotifications(updatedNotifications);
+      setAllNotifications(updatedNotifications);
     });
 
     return () => {
@@ -56,6 +58,35 @@ export function OrderProvider({ children }: { children: React.ReactNode }) {
       unsubscribeNotifications();
     };
   }, [orderService]);
+
+  // Filter notifications based on user role
+  // Staff users should NOT receive online order notifications
+  // Only Receptionist, Admin, Super Admin, and Manager should receive them
+  const notifications = useMemo(() => {
+    if (!user) {
+      return []
+    }
+
+    const userRole = user.role.toUpperCase()
+    const isAdminRole = userRole === "ADMIN" || userRole === "SUPER_ADMIN" || userRole === "ORG_ADMIN"
+    const isManagerRole = userRole === "MANAGER" || userRole === "LOCATION_MANAGER"
+    const isReceptionistRole = userRole === "RECEPTIONIST"
+    const isStaffRole = userRole === "STAFF"
+
+    // Staff users don't receive any order notifications
+    if (isStaffRole) {
+      console.log(`🔕 Filtering out all order notifications for staff user ${user.id}`)
+      return []
+    }
+
+    // Admin, Manager, and Receptionist receive ALL order notifications
+    if (isAdminRole || isManagerRole || isReceptionistRole) {
+      return allNotifications
+    }
+
+    // Other roles don't receive order notifications
+    return []
+  }, [allNotifications, user]);
 
   // Set up transaction update callback
   const TransactionUpdateWrapper = ({ children }: { children: React.ReactNode }) => {

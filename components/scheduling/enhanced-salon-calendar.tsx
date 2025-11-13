@@ -71,6 +71,8 @@ export function EnhancedSalonCalendar({
   const [viewType, setViewType] = useState<string>("day")
   const [currentTime, setCurrentTime] = useState<Date>(new Date())
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  // Use ref to track viewMode changes and prevent unintended resets
+  const viewModeRef = useRef<"calendar" | "summary">("calendar")
 
   // Early/Late hours collapsible state
   const [earlyHoursExpanded, setEarlyHoursExpanded] = useState<boolean>(false)
@@ -113,6 +115,12 @@ export function EnhancedSalonCalendar({
       onDateSelect(date)
     }
   }, [date, onDateSelect])
+
+  // Sync viewMode state with ref to prevent unintended resets
+  useEffect(() => {
+    viewModeRef.current = viewMode;
+    console.log("EnhancedSalonCalendar - View mode changed to:", viewMode);
+  }, [viewMode])
 
   // Ensure the Calendar View tab is always available and properly initialized
   useEffect(() => {

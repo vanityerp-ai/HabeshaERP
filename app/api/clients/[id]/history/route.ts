@@ -28,35 +28,35 @@ export async function GET(
     })
 
     // Get client purchases/orders from the order management system
-    // For now, we'll use mock data but this should connect to your order system
-    const mockPurchases = [
-      {
-        id: `p1-${clientId}`,
-        date: "2025-03-15T14:30:00",
-        type: "purchase",
-        description: "Shampoo & Conditioner Set",
-        amount: 45.99,
-        paymentMethod: "Credit Card",
-        transactionId: "TX-001",
-        items: [
-          { name: "Premium Shampoo", quantity: 1, price: 22.99 },
-          { name: "Deep Conditioner", quantity: 1, price: 23.00 }
-        ]
+    const orders = await prisma.order.findMany({
+      where: {
+        clientId: clientId
       },
-      {
-        id: `p2-${clientId}`,
-        date: "2025-02-28T16:45:00",
-        type: "purchase",
-        description: "Hair Styling Products",
-        amount: 67.50,
-        paymentMethod: "Debit Card",
-        transactionId: "TX-002",
-        items: [
-          { name: "Hair Serum", quantity: 1, price: 35.00 },
-          { name: "Styling Gel", quantity: 2, price: 16.25 }
-        ]
+      orderBy: {
+        createdAt: 'desc'
       }
-    ]
+    })
+
+    // Transform orders to purchase format
+    const purchases = orders.map(order => {
+      // Parse items JSON
+      const items = order.items ? JSON.parse(order.items) : []
+
+      return {
+        id: order.id,
+        date: order.createdAt.toISOString(),
+        type: "purchase",
+        description: items.length > 0 ? items.map((item: any) => item.name).join(", ") : "Product Purchase",
+        amount: Number(order.total),
+        paymentMethod: order.paymentMethod,
+        transactionId: order.orderNumber,
+        items: items.map((item: any) => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price
+        }))
+      }
+    })
 
     // Transform appointments to timeline format
     const appointmentEvents = appointments.map(appointment => ({
@@ -76,7 +76,7 @@ export async function GET(
     }))
 
     // Transform purchases to timeline format
-    const purchaseEvents = mockPurchases.map(purchase => ({
+    const purchaseEvents = purchases.map(purchase => ({
       id: purchase.id,
       date: purchase.date,
       type: "purchase",

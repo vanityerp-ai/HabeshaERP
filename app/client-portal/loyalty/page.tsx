@@ -178,9 +178,10 @@ export default function LoyaltyPage() {
         throw new Error(data.error || 'Failed to send referral')
       }
 
+      const companyName = businessSettings?.branding?.companyName || businessSettings?.businessName || "Vanity Hub"
       toast({
         title: "Referral sent!",
-        description: "Your friend has been invited to join Vanity Hub. You'll earn 200 points when they book their first appointment.",
+        description: `Your friend has been invited to join ${companyName}. You'll earn 200 points when they book their first appointment.`,
       })
 
       setReferralEmail("")
@@ -364,7 +365,7 @@ export default function LoyaltyPage() {
                 <div className="bg-gradient-to-r from-pink-500 to-purple-600 rounded-lg p-6 text-white">
                   <div className="flex justify-between items-center mb-6">
                     <div>
-                      <p className="text-white/80 text-sm">Vanity Hub</p>
+                      <p className="text-white/80 text-sm">{businessSettings?.branding?.companyName || businessSettings?.businessName || "Vanity Hub"}</p>
                       <h3 className="font-bold text-xl">Rewards Card</h3>
                     </div>
                     <Badge variant="outline" className="bg-white/20 text-white border-white/30">

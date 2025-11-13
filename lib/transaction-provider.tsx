@@ -347,41 +347,72 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
     console.log('Transaction ID:', newTransaction.id);
     console.log('Transaction source:', newTransaction.source);
     console.log('Transaction amount:', newTransaction.amount);
+    console.log('📝 About to add transaction to localStorage and save to database');
 
     // Save to API asynchronously (don't block the UI)
     (async () => {
+      console.log('🚀 ASYNC FUNCTION STARTED - About to save transaction to database');
       try {
+        // Use walk-in customer ID if no client is selected
+        const userId = newTransaction.clientId || newTransaction.staffId || 'walkin-customer';
+
+        console.log('💾 Saving transaction to database via API...', {
+          transactionId: newTransaction.id,
+          clientId: newTransaction.clientId,
+          staffId: newTransaction.staffId,
+          userId: userId,
+          amount: newTransaction.amount,
+          type: newTransaction.type,
+          locationId: newTransaction.location,
+          appointmentId: newTransaction.reference?.type === 'appointment' ? newTransaction.reference.id : undefined,
+        });
+
+        const requestBody = {
+          userId: userId,
+          amount: newTransaction.amount,
+          type: newTransaction.type,
+          status: newTransaction.status || 'COMPLETED',
+          method: newTransaction.paymentMethod || newTransaction.method || 'CASH',
+          source: newTransaction.source, // Include source field for proper transaction categorization
+          reference: newTransaction.reference?.id,
+          description: newTransaction.description,
+          locationId: newTransaction.location,
+          appointmentId: newTransaction.reference?.type === 'appointment' ? newTransaction.reference.id : undefined,
+          serviceAmount: newTransaction.serviceAmount,
+          productAmount: newTransaction.productAmount,
+          originalServiceAmount: newTransaction.originalServiceAmount,
+          discountPercentage: newTransaction.discountPercentage,
+          discountAmount: newTransaction.discountAmount,
+          items: newTransaction.items,
+        };
+
+        console.log('📤 Request body:', requestBody);
+
         const response = await fetch('/api/transactions', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            userId: newTransaction.staffId || 'unknown',
-            amount: newTransaction.amount,
-            type: newTransaction.type,
-            status: newTransaction.status || 'COMPLETED',
-            method: newTransaction.method || 'CASH',
-            reference: newTransaction.reference?.id,
-            description: newTransaction.description,
-            locationId: newTransaction.location,
-            appointmentId: newTransaction.reference?.type === 'appointment' ? newTransaction.reference.id : undefined,
-            serviceAmount: newTransaction.serviceAmount,
-            productAmount: newTransaction.productAmount,
-            originalServiceAmount: newTransaction.originalServiceAmount,
-            discountPercentage: newTransaction.discountPercentage,
-            discountAmount: newTransaction.discountAmount,
-            items: newTransaction.items,
-          }),
+          body: JSON.stringify(requestBody),
         });
 
         if (!response.ok) {
-          console.warn('Failed to save transaction to API:', response.status);
+          const errorText = await response.text();
+          console.error('❌ Failed to save transaction to API:', {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorText,
+            requestBody: requestBody
+          });
+
+          // Show user-friendly error toast
+          alert(`⚠️ Transaction saved to localStorage but failed to save to database!\n\nError: ${errorText}\n\nPlease check the console for details.`);
         } else {
-          console.log('✅ Transaction saved to database');
+          const result = await response.json();
+          console.log('✅ Transaction saved to database successfully:', result.transaction?.id);
         }
       } catch (error) {
-        console.warn('Failed to save transaction to API:', error);
+        console.error('❌ Exception while saving transaction to API:', error);
         // Continue anyway - localStorage will be the backup
       }
     })();

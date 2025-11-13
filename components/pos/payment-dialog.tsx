@@ -35,7 +35,7 @@ export function PaymentDialog({ open, onOpenChange, total, serviceTotal, onCompl
   const { currency, formatCurrency } = useCurrency()
   const { getLocationName } = useLocations();
   const [paymentMethod, setPaymentMethod] = useState("card")
-  const [amountPaid, setAmountPaid] = useState(total.toFixed(currency.decimalDigits))
+  const [amountPaid, setAmountPaid] = useState((isNaN(total) ? 0 : total).toFixed(currency.decimalDigits))
   const [cardNumber, setCardNumber] = useState("")
   const [cardExpiry, setCardExpiry] = useState("")
   const [cardCvc, setCardCvc] = useState("")
@@ -49,11 +49,13 @@ export function PaymentDialog({ open, onOpenChange, total, serviceTotal, onCompl
   const [discountAmount, setDiscountAmount] = useState(0) // Add discountAmount state
   const [discountError, setDiscountError] = useState("")
 
-  // Calculate discount amounts
+  // Calculate discount amounts with proper validation
   const discountPercent = parseFloat(discountPercentage) || 0
-  const serviceDiscountAmount = (serviceTotal * discountPercent) / 100
+  const validServiceTotal = isNaN(serviceTotal) ? 0 : serviceTotal
+  const validTotal = isNaN(total) ? 0 : total
+  const serviceDiscountAmount = (validServiceTotal * discountPercent) / 100
   const totalDiscountAmount = serviceDiscountAmount // For now, total discount is only from services
-  const finalTotal = total - totalDiscountAmount
+  const finalTotal = Math.max(0, validTotal - totalDiscountAmount)
 
   // Gift card state
   const [giftCardCode, setGiftCardCode] = useState("")
@@ -68,8 +70,8 @@ export function PaymentDialog({ open, onOpenChange, total, serviceTotal, onCompl
 
   // Update discountAmount whenever discountPercentage or total changes
   useEffect(() => {
-    setDiscountAmount(total * discountPercent / 100)
-  }, [total, discountPercent])
+    setDiscountAmount(validTotal * discountPercent / 100)
+  }, [validTotal, discountPercent])
   const [isValidatingGiftCard, setIsValidatingGiftCard] = useState(false)
 
   const validateGiftCard = async (code: string) => {
@@ -89,10 +91,10 @@ export function PaymentDialog({ open, onOpenChange, total, serviceTotal, onCompl
       // Mock validation logic
       if (code.toUpperCase() === "GIFT-1234-5678-9012") {
         setGiftCardBalance(150.00)
-        setGiftCardAmount(Math.min(total, 150.00).toFixed(currency.decimalDigits))
+        setGiftCardAmount(Math.min(validTotal, 150.00).toFixed(currency.decimalDigits))
       } else if (code.toUpperCase() === "GIFT-ABCD-EFGH-IJKL") {
         setGiftCardBalance(75.50)
-        setGiftCardAmount(Math.min(total, 75.50).toFixed(currency.decimalDigits))
+        setGiftCardAmount(Math.min(validTotal, 75.50).toFixed(currency.decimalDigits))
       } else {
         setGiftCardError("Invalid gift card code or gift card not found")
         setGiftCardBalance(null)
@@ -264,7 +266,7 @@ export function PaymentDialog({ open, onOpenChange, total, serviceTotal, onCompl
             Complete the transaction for <CurrencyDisplay amount={finalTotal} />
             {discountAmount > 0 && (
               <span className="text-green-600 ml-2">
-                (Original: <CurrencyDisplay amount={total} />, Discount: {discountPercent}%)
+                (Original: <CurrencyDisplay amount={validTotal} />, Discount: {discountPercent}%)
               </span>
             )}
           </DialogDescription>
@@ -298,7 +300,7 @@ export function PaymentDialog({ open, onOpenChange, total, serviceTotal, onCompl
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-600">Original Total:</span>
-                <span><CurrencyDisplay amount={total} /></span>
+                <span><CurrencyDisplay amount={validTotal} /></span>
               </div>
               <div className="flex justify-between text-green-600">
                 <span>Discount ({discountPercent}%):</span>
@@ -373,7 +375,7 @@ export function PaymentDialog({ open, onOpenChange, total, serviceTotal, onCompl
               <Input
                 id="amountPaid"
                 type="number"
-                min={finalTotal}
+                min={isNaN(finalTotal) ? 0 : finalTotal}
                 step="0.01"
                 value={amountPaid}
                 onChange={(e) => setAmountPaid(e.target.value)}
@@ -447,20 +449,20 @@ export function PaymentDialog({ open, onOpenChange, total, serviceTotal, onCompl
                     id="giftCardAmount"
                     type="number"
                     min="0.01"
-                    max={Math.min(total, giftCardBalance)}
+                    max={Math.min(validTotal, giftCardBalance)}
                     step="0.01"
                     value={giftCardAmount}
                     onChange={(e) => setGiftCardAmount(e.target.value)}
                   />
                   <p className="text-sm text-muted-foreground">
-                    Maximum: <CurrencyDisplay amount={Math.min(total, giftCardBalance)} />
+                    Maximum: <CurrencyDisplay amount={Math.min(validTotal, giftCardBalance)} />
                   </p>
                 </div>
 
                 <div className="rounded-md bg-muted p-4">
                   <div className="flex justify-between">
                     <span>Total</span>
-                    <span><CurrencyDisplay amount={total} /></span>
+                    <span><CurrencyDisplay amount={validTotal} /></span>
                   </div>
                   <div className="flex justify-between mt-2">
                     <span>Gift Card Payment</span>
@@ -468,9 +470,9 @@ export function PaymentDialog({ open, onOpenChange, total, serviceTotal, onCompl
                   </div>
                   <div className="flex justify-between mt-2 font-medium">
                     <span>Remaining Balance</span>
-                    <span><CurrencyDisplay amount={Math.max(0, total - (parseFloat(giftCardAmount) || 0))} /></span>
+                    <span><CurrencyDisplay amount={Math.max(0, validTotal - (parseFloat(giftCardAmount) || 0))} /></span>
                   </div>
-                  {total > (parseFloat(giftCardAmount) || 0) && (
+                  {validTotal > (parseFloat(giftCardAmount) || 0) && (
                     <p className="text-sm text-muted-foreground mt-2">
                       Additional payment method required for remaining balance
                     </p>

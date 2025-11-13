@@ -92,8 +92,8 @@ export function ProtectedNav({ className, items, ...props }: ProtectedNavProps) 
       return false
     }
 
-    // Special case for POS - ensure it's visible for receptionists
-    if (item.href === "/dashboard/pos" && user?.role === "receptionist") {
+    // Special case for POS - ensure it's visible for receptionists (case-insensitive)
+    if (item.href === "/dashboard/pos" && user?.role.toUpperCase() === "RECEPTIONIST") {
       return true
     }
 

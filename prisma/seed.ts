@@ -157,7 +157,7 @@ async function main() {
     { name: 'Tirhas Tajebe', email: 'tirhas@habeshasalon.com', phone: '', role: 'Nail Artist', empNo: '9119', qid: '382025419997', passport: '', qidValidity: '', passportValidity: '', dob: '', locations: [1], homeService: true },
     { name: 'Tsigereda Esayas', email: 'tsigereda@habeshasalon.com', phone: '55849079', role: 'Stylist', empNo: '9120', qid: '382024482060', passport: '', qidValidity: '', passportValidity: '', dob: '', locations: [1], homeService: true },
     { name: 'Shalom Kuna', email: 'shalom@habeshasalon.com', phone: '551011295', role: 'Beautician', empNo: '9121', qid: '29135634320', passport: '', qidValidity: '', passportValidity: '', dob: '', locations: [1], homeService: true },
-    { name: 'Samrawit Legese', email: 'samrawit@habeshasalon.com', phone: '33462505', role: 'Sales', empNo: '9122', qid: '', passport: '', qidValidity: '', passportValidity: '', dob: '', locations: [4], homeService: true }
+    { name: 'Samrawit Legese', email: 'samrawit@habeshasalon.com', phone: '33462505', role: 'Receptionist', empNo: '9122', qid: '', passport: '', qidValidity: '', passportValidity: '', dob: '', locations: [4], homeService: true }
   ]
 
   const staffMembers = []
@@ -180,11 +180,19 @@ async function main() {
     })
 
     if (!staffUser) {
+      // Map staff role to user role
+      let userRole = 'STAFF'
+      if (staff.role === 'Admin') {
+        userRole = 'ADMIN'
+      } else if (staff.role === 'Receptionist') {
+        userRole = 'RECEPTIONIST'
+      }
+
       staffUser = await prisma.user.create({
         data: {
           email: staff.email,
           password: staffPassword,
-          role: staff.role === 'Admin' ? 'ADMIN' : 'STAFF',
+          role: userRole,
         },
       })
     }

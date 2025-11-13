@@ -49,14 +49,14 @@ async function seedDatabase(adminPasswordHash: string) {
     `
     INSERT INTO users (name, email, password_hash, role)
     VALUES
-      ('Admin User', 'admin@vanity.com', $1, 'super_admin'),
-      ('Manager Downtown', 'manager1@vanity.com', $1, 'location_manager'),
-      ('Manager Westside', 'manager2@vanity.com', $1, 'location_manager'),
-      ('Manager Northside', 'manager3@vanity.com', $1, 'location_manager'),
-      ('Stylist One', 'stylist1@vanity.com', $1, 'staff'),
-      ('Stylist Two', 'stylist2@vanity.com', $1, 'staff'),
-      ('Stylist Three', 'stylist3@vanity.com', $1, 'staff'),
-      ('Receptionist', 'receptionist@vanity.com', $1, 'receptionist')
+      ('Admin User', 'admin@vanity.com', $1, 'ADMIN'),
+      ('Manager Downtown', 'manager1@vanity.com', $1, 'MANAGER'),
+      ('Manager Westside', 'manager2@vanity.com', $1, 'MANAGER'),
+      ('Manager Northside', 'manager3@vanity.com', $1, 'MANAGER'),
+      ('Stylist One', 'stylist1@vanity.com', $1, 'STAFF'),
+      ('Stylist Two', 'stylist2@vanity.com', $1, 'STAFF'),
+      ('Stylist Three', 'stylist3@vanity.com', $1, 'STAFF'),
+      ('Receptionist', 'receptionist@vanity.com', $1, 'RECEPTIONIST')
     RETURNING id
   `,
     [adminPasswordHash],

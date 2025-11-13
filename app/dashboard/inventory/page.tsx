@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-provider"
 import { useProducts, type Product as ProviderProduct } from "@/lib/product-provider"
 import { useLocations } from "@/lib/location-provider"
@@ -47,6 +48,7 @@ interface ProductLocation {
 }
 
 export default function InventoryPage() {
+  const router = useRouter()
   const { currentLocation, hasPermission } = useAuth()
   const { formatCurrency } = useCurrency()
   const { products, transfers, getTransferById, cancelTransfer, refreshProducts, isLoading, error } = useProducts()
@@ -80,6 +82,17 @@ export default function InventoryPage() {
 
   // Use the ProductProvider's refresh function
   const fetchProducts = refreshProducts
+
+  // Check permission SYNCHRONOUSLY to prevent flash of unauthorized content
+  if (!hasPermission("view_inventory")) {
+    // Trigger redirect in useEffect to avoid React state update warnings
+    useEffect(() => {
+      router.push("/dashboard/appointments")
+    }, [router])
+
+    // Return null immediately to prevent any rendering
+    return null
+  }
 
   // Seed database with comprehensive product catalog
   const seedDatabase = async () => {
@@ -148,16 +161,6 @@ export default function InventoryPage() {
   }, [currentLocation, refreshProducts])
 
   // Note: No need for separate transfer refresh effect since ProductProvider handles this
-
-  // Check if user has permission to view inventory page
-  if (!hasPermission("view_inventory")) {
-    return (
-      <AccessDenied
-        description="You don't have permission to view the inventory management page."
-        backButtonHref="/dashboard"
-      />
-    )
-  }
 
   // Get stock for current location with validation
   const getProductStock = (product: ProviderProduct): number => {

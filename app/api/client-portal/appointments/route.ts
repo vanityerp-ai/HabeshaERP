@@ -232,8 +232,16 @@ export async function POST(request: Request) {
           duration: data.duration,
           totalPrice: data.price || 0,
           notes: data.notes || '',
-          status: data.status || "SCHEDULED",
+          status: data.status?.toUpperCase() || "SCHEDULED",
           bookingReference: bookingReference,
+          // Create the service relationship if serviceId is provided
+          services: data.serviceId ? {
+            create: {
+              serviceId: data.serviceId,
+              price: data.price || 0,
+              duration: data.duration,
+            }
+          } : undefined,
         },
         include: {
           client: {
@@ -258,6 +266,11 @@ export async function POST(request: Request) {
             select: {
               id: true,
               name: true,
+            },
+          },
+          services: {
+            include: {
+              service: true,
             },
           },
         },

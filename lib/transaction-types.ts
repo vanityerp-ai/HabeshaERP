@@ -110,9 +110,11 @@ export interface TransactionItem {
  */
 export interface Transaction {
   id: string;
+  transactionNumber?: number; // 5-digit sequential transaction number for display
   date: Date | string;
   clientId?: string;
   clientName?: string;
+  clientPhone?: string; // Client phone number for display (from API)
   staffId?: string;
   staffName?: string;
   type: TransactionType;
@@ -122,6 +124,7 @@ export interface Transaction {
   paymentMethod: PaymentMethod;
   status: TransactionStatus;
   location: string;
+  locationName?: string; // Location name for display (from API)
   source: TransactionSource;
   reference?: {
     type: string;

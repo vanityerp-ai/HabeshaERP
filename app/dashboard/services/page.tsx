@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-provider"
 import { useLocations } from "@/lib/location-provider"
 import { Button } from "@/components/ui/button"
@@ -14,6 +15,7 @@ import { LocationUpdateNotification } from "@/components/services/location-updat
 import { Plus, Search } from "lucide-react"
 
 export default function ServicesPage() {
+  const router = useRouter()
   const { currentLocation, hasPermission } = useAuth()
   const { getLocationName, refreshLocations } = useLocations()
   const [search, setSearch] = useState("")
@@ -24,6 +26,17 @@ export default function ServicesPage() {
   useEffect(() => {
     refreshLocations()
   }, [])
+
+  // Check permission SYNCHRONOUSLY to prevent flash of unauthorized content
+  if (!hasPermission("view_services")) {
+    // Trigger redirect in useEffect to avoid React state update warnings
+    useEffect(() => {
+      router.push("/dashboard/appointments")
+    }, [router])
+
+    // Return null immediately to prevent any rendering
+    return null
+  }
 
   return (
     <div className="space-y-6">

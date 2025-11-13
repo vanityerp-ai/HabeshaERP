@@ -85,8 +85,29 @@ export async function POST(request: Request) {
     }
     console.log("✅ Product found:", product.name)
 
-    // Check if location exists
+    // Check if location exists (skip validation for virtual locations)
     console.log("🔍 Looking for location:", locationId)
+
+    // Virtual locations (home, online) exist in localStorage but not in database
+    // They don't have physical inventory, so we skip inventory updates for them
+    const isVirtualLocation = locationId === 'home' || locationId === 'online'
+
+    if (isVirtualLocation) {
+      console.log("✅ Virtual location detected:", locationId)
+      console.log("⚠️ Skipping inventory update for virtual location (no physical stock)")
+
+      // Return success response without updating inventory
+      return NextResponse.json({
+        success: true,
+        message: `Inventory update skipped for virtual location: ${locationId}`,
+        virtualLocation: true,
+        locationId: locationId,
+        productId: productId,
+        skipped: true
+      })
+    }
+
+    // For physical locations, validate that the location exists
     const location = await prisma.location.findUnique({
       where: { id: locationId }
     })
