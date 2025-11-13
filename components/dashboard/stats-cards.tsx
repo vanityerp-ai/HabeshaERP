@@ -287,12 +287,39 @@ export function StatsCards({ dateRange }: StatsCardsProps) {
 
       const filteredTxs = filterTransactions(filters)
 
+      // Debug: Check for transactions without sources
+      const transactionsWithoutSource = filteredTxs.filter((t: any) => !t.source)
+      if (transactionsWithoutSource.length > 0) {
+        console.warn('⚠️ TRANSACTIONS WITHOUT SOURCE:', transactionsWithoutSource.length)
+        transactionsWithoutSource.forEach((t: any) => {
+          console.warn('⚠️ TRANSACTION WITHOUT SOURCE:', {
+            id: t.id,
+            description: t.description,
+            amount: t.amount,
+            type: t.type,
+            status: t.status,
+            date: t.date,
+            reference: t.reference,
+            appointmentId: t.appointmentId
+          })
+        })
+      }
+
       // Calculate online sales (CLIENT_PORTAL transactions only)
       const onlineSales = analytics.clientPortalRevenue;
       const inPersonSales = analytics.posRevenue + analytics.calendarRevenue;
       const homeServiceSales = analytics.homeServiceRevenue;
 
-
+      // Debug: Log revenue breakdown by source
+      console.log('📊 REVENUE BY SOURCE:', {
+        clientPortalRevenue: analytics.clientPortalRevenue,
+        posRevenue: analytics.posRevenue,
+        calendarRevenue: analytics.calendarRevenue,
+        homeServiceRevenue: analytics.homeServiceRevenue,
+        totalFromSources: analytics.clientPortalRevenue + analytics.posRevenue + analytics.calendarRevenue + analytics.homeServiceRevenue,
+        totalRevenue: analytics.totalRevenue,
+        difference: analytics.totalRevenue - (analytics.clientPortalRevenue + analytics.posRevenue + analytics.calendarRevenue + analytics.homeServiceRevenue)
+      })
 
       // Get the proper breakdown from analytics service
       const inPersonServices = analytics.inPersonServices;
@@ -573,8 +600,26 @@ export function StatsCards({ dateRange }: StatsCardsProps) {
     }
 
     // Add additional services
+    // IMPORTANT: Skip the main service if it's in the additionalServices array to avoid double-counting
     if (appointment.additionalServices && Array.isArray(appointment.additionalServices)) {
+      console.log(`🔍 PROCESSING ADDITIONAL SERVICES:`, appointment.additionalServices.map(s => ({
+        id: s.id,
+        serviceId: s.serviceId,
+        name: s.name,
+        price: s.price
+      })))
+
       appointment.additionalServices.forEach((service: any) => {
+        // Skip if this is the main service (to avoid double-counting)
+        const isMainService = service.serviceId === appointment.serviceId ||
+                             service.id === appointment.serviceId ||
+                             service.name === appointment.service
+
+        if (isMainService) {
+          console.log(`🔍 SKIPPING MAIN SERVICE IN ADDITIONAL SERVICES:`, service.name || service.serviceId)
+          return
+        }
+
         let servicePrice = 0
         if (typeof service.price === 'number') {
           servicePrice = service.price
@@ -583,6 +628,7 @@ export function StatsCards({ dateRange }: StatsCardsProps) {
         }
 
         if (servicePrice > 0) {
+          console.log(`🔍 ADDING ADDITIONAL SERVICE:`, service.name || service.serviceId, servicePrice)
           total += servicePrice
           serviceRevenue += servicePrice
         }
@@ -817,14 +863,20 @@ export function StatsCards({ dateRange }: StatsCardsProps) {
 
       pendingAppointments.forEach(appointment => {
         // Check if this appointment already has a completed transaction
-        const existingTransaction = transactions.find(tx =>
-          tx.reference?.type === 'appointment' &&
-          tx.reference?.id === appointment.id &&
-          tx.status === TransactionStatus.COMPLETED
-        )
+        // Check both reference.id and appointmentId for backwards compatibility
+        const existingTransaction = transactions.find(tx => {
+          const hasReferenceMatch = tx.reference?.type === 'appointment' && tx.reference?.id === appointment.id
+          const hasAppointmentIdMatch = tx.appointmentId === appointment.id
+          const isCompleted = tx.status === TransactionStatus.COMPLETED || tx.status === 'completed'
 
-        // Only count revenue if no completed transaction exists
-        if (!existingTransaction) {
+          return (hasReferenceMatch || hasAppointmentIdMatch) && isCompleted
+        })
+
+        // Also check if appointment has transactionRecorded flag or paymentStatus is 'paid'
+        const alreadyPaid = appointment.transactionRecorded === true || appointment.paymentStatus === 'paid'
+
+        // Only count revenue if no completed transaction exists AND not already paid
+        if (!existingTransaction && !alreadyPaid) {
           console.log(`📊 CALCULATING REVENUE FOR: ${appointment.clientName} - ${appointment.service}`)
           console.log(`📊 APPOINTMENT DATA:`, {
             id: appointment.id,
@@ -832,7 +884,9 @@ export function StatsCards({ dateRange }: StatsCardsProps) {
             priceType: typeof appointment.price,
             service: appointment.service,
             serviceId: appointment.serviceId,
-            status: appointment.status
+            status: appointment.status,
+            transactionRecorded: appointment.transactionRecorded,
+            paymentStatus: appointment.paymentStatus
           })
 
           // Use the helper function to calculate revenue
@@ -852,7 +906,17 @@ export function StatsCards({ dateRange }: StatsCardsProps) {
 
           console.log(`📊 PENDING: ${appointment.clientName} - ${appointment.service}: TOTAL = ${revenue.total}`)
         } else {
-          console.log(`📊 SKIPPED: ${appointment.clientName} - already has completed transaction`)
+          const reason = existingTransaction ? 'already has completed transaction' : 'already marked as paid'
+          console.log(`📊 SKIPPED: ${appointment.clientName} - ${reason}`)
+          if (existingTransaction) {
+            console.log(`📊 EXISTING TRANSACTION:`, {
+              id: existingTransaction.id,
+              amount: existingTransaction.amount,
+              status: existingTransaction.status,
+              reference: existingTransaction.reference,
+              appointmentId: existingTransaction.appointmentId
+            })
+          }
         }
       })
 

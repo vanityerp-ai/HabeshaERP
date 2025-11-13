@@ -60,6 +60,12 @@ export async function POST(request: Request) {
       if (data.isAutoRegistered) {
         console.log('✅ /api/clients/create - Returning existing client for auto-registration')
 
+        // Parse existing preferences
+        const existingPreferences = existingClient?.preferences ? JSON.parse(existingClient.preferences) : {}
+
+        // Get preferredLocation from stored preferences, or use the new one if not set
+        const preferredLocation = existingPreferences.preferredLocation || data.preferredLocation || ''
+
         const responseClient = {
           id: existingClient?.userId, // Return the User ID, not the Client ID
           name: existingClient?.name,
@@ -69,15 +75,17 @@ export async function POST(request: Request) {
           city: '',
           state: '',
           birthday: existingClient?.dateOfBirth?.toISOString() || '',
-          preferredLocation: data.preferredLocation || 'loc1',
-          locations: data.locations || [data.preferredLocation || 'loc1'],
+          preferredLocation: preferredLocation,
+          locations: [preferredLocation],
           totalSpent: 0,
           referredBy: '',
-          preferences: existingClient?.preferences ? JSON.parse(existingClient.preferences) : {
-            preferredStylists: [],
-            preferredServices: [],
-            allergies: [],
-            notes: ''
+          preferences: {
+            ...existingPreferences,
+            preferredLocation: preferredLocation,
+            preferredStylists: existingPreferences.preferredStylists || [],
+            preferredServices: existingPreferences.preferredServices || [],
+            allergies: existingPreferences.allergies || [],
+            notes: existingPreferences.notes || ''
           },
           notes: existingClient?.notes || '',
           registrationSource: 'existing',
@@ -121,6 +129,16 @@ export async function POST(request: Request) {
       }
     })
 
+    // Prepare preferences object with preferredLocation
+    const preferencesData = {
+      ...(data.preferences || {}),
+      preferredLocation: data.preferredLocation || '',
+      preferredStylists: data.preferences?.preferredStylists || [],
+      preferredServices: data.preferences?.preferredServices || [],
+      allergies: data.preferences?.allergies || [],
+      notes: data.preferences?.notes || ''
+    }
+
     // Create client profile
     const client = await prisma.client.create({
       data: {
@@ -128,7 +146,7 @@ export async function POST(request: Request) {
         name: data.name.trim(),
         phone: data.phone,
         dateOfBirth: data.birthday ? new Date(data.birthday) : null,
-        preferences: data.preferences ? JSON.stringify(data.preferences) : null,
+        preferences: JSON.stringify(preferencesData),
         notes: data.notes || null
       },
       include: {

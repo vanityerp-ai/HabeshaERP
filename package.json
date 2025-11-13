@@ -55,6 +55,8 @@
     "db:setup:prod": "node scripts/setup-database.js production",
     "db:setup:test": "node scripts/setup-database.js test",
     "db:migrate:deploy": "prisma migrate deploy",
+    "fix:receptionist-role": "tsx scripts/standardize-receptionist-role.ts",
+    "fix:samrawit-role": "tsx scripts/update-samrawit-to-receptionist.ts",
     "prod:check": "node scripts/production-readiness-check.js",
     "prod:build": "npm run prod:check && npm run type-check && npm run build",
     "prod:deploy": "npm run prod:build && vercel --prod"

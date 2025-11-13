@@ -370,8 +370,28 @@ export class IntegratedAnalyticsService {
       calendarRevenue: filteredTransactions.filter(t => t.source === TransactionSource.CALENDAR && t.status !== TransactionStatus.CANCELLED).reduce((sum, t) => sum + t.amount, 0),
       posRevenue: filteredTransactions.filter(t => t.source === TransactionSource.POS && t.status !== TransactionStatus.CANCELLED).reduce((sum, t) => sum + t.amount, 0),
       homeServiceRevenue: filteredTransactions.filter(t => t.source === TransactionSource.HOME_SERVICE && t.status !== TransactionStatus.CANCELLED).reduce((sum, t) => sum + t.amount, 0),
-      cancelledRevenue: filteredTransactions.filter(t => t.status === TransactionStatus.CANCELLED).reduce((sum, t) => sum + t.amount, 0)
+      cancelledRevenue: filteredTransactions.filter(t => t.status === TransactionStatus.CANCELLED).reduce((sum, t) => sum + t.amount, 0),
+      transactionsWithoutSource: filteredTransactions.filter(t => !t.source && t.status !== TransactionStatus.CANCELLED).length,
+      revenueWithoutSource: filteredTransactions.filter(t => !t.source && t.status !== TransactionStatus.CANCELLED).reduce((sum, t) => sum + t.amount, 0)
     });
+
+    // Warn about transactions without source
+    const transactionsWithoutSource = filteredTransactions.filter(t => !t.source && t.status !== TransactionStatus.CANCELLED)
+    if (transactionsWithoutSource.length > 0) {
+      console.warn('⚠️ ANALYTICS: Found transactions without source:', {
+        count: transactionsWithoutSource.length,
+        totalAmount: transactionsWithoutSource.reduce((sum, t) => sum + t.amount, 0),
+        transactions: transactionsWithoutSource.map(t => ({
+          id: t.id,
+          description: t.description,
+          amount: t.amount,
+          type: t.type,
+          date: t.date,
+          reference: t.reference,
+          appointmentId: t.appointmentId
+        }))
+      })
+    }
 
     // Calculate expense metrics - EXCLUDE CANCELLED TRANSACTIONS
     const operatingExpenses = filteredTransactions

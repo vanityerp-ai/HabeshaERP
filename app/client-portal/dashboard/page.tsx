@@ -54,6 +54,7 @@ import {
 import { format } from "date-fns"
 // DEPRECATED: Mock data removed - now using real API data
 import { EnhancedImage } from "@/components/ui/enhanced-image"
+import { SettingsStorage, type GeneralSettings } from "@/lib/settings-storage"
 
 export default function ClientDashboardPage() {
   const router = useRouter()
@@ -70,6 +71,7 @@ export default function ClientDashboardPage() {
   const [showGiftCardDialog, setShowGiftCardDialog] = useState(false)
   const [showMembershipDialog, setShowMembershipDialog] = useState(false)
   const [selectedTierForDialog, setSelectedTierForDialog] = useState<string | undefined>(undefined)
+  const [businessSettings, setBusinessSettings] = useState<GeneralSettings | null>(null)
 
   // Real-time data integration - with fallback to prevent circular dependencies
   const [dataLoading, setDataLoading] = useState(false)
@@ -189,6 +191,12 @@ export default function ClientDashboardPage() {
 
     setLoading(false)
   }, [clients, getClient, router, toast])
+
+  // Load business settings
+  useEffect(() => {
+    const settings = SettingsStorage.getGeneralSettings()
+    setBusinessSettings(settings)
+  }, [])
 
   // Get upcoming appointments for this client
   // TODO: Replace with real API call to fetch client appointments
@@ -480,7 +488,7 @@ export default function ClientDashboardPage() {
                 <div className="bg-gradient-to-r from-pink-500 to-purple-600 rounded-lg p-4 text-white">
                   <div className="flex justify-between items-center mb-4">
                     <div>
-                      <p className="text-white/80 text-sm">Vanity Hub</p>
+                      <p className="text-white/80 text-sm">{businessSettings?.branding?.companyName || businessSettings?.businessName || "Vanity Hub"}</p>
                       <h3 className="font-bold text-lg">Rewards Card</h3>
                     </div>
                     <div className="flex items-center">

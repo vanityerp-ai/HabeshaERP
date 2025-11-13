@@ -291,10 +291,8 @@ export default function AppointmentsPage() {
     if (appointment.isReflected && appointment.originalAppointmentId) {
       const originalAppointment = appointments.find(apt => apt.id === appointment.originalAppointmentId);
       if (originalAppointment) {
-        const service = services.find(s => s.name === originalAppointment.service);
-        if (service) {
-          originalAppointment.price = service.price;
-        }
+        // Use the appointment data as-is from the database
+        // The price should already be correct from the API
         setSelectedAppointment(originalAppointment)
         setIsAppointmentDetailsDialogOpen(true)
         return;
@@ -304,23 +302,12 @@ export default function AppointmentsPage() {
     // Find the full appointment data
     const fullAppointment = appointments.find((a) => a.id === appointment.id)
     if (fullAppointment) {
-      // Always ensure price is properly set from the service
-      // This fixes cases where price might be 0, undefined, or null
-      const service = services.find(s => s.name === fullAppointment.service);
-      if (service) {
-        fullAppointment.price = service.price;
-      }
+      // Use the appointment data as-is from the database
+      // The price and service information should already be correct from the API
       setSelectedAppointment(fullAppointment)
       setIsAppointmentDetailsDialogOpen(true)
     } else {
       // Fallback to using the appointment as is if not found in appointments data
-      // Also try to set the price from services if possible
-      if (appointment.service) {
-        const service = services.find(s => s.name === appointment.service);
-        if (service) {
-          appointment.price = service.price;
-        }
-      }
       setSelectedAppointment(appointment)
       setIsAppointmentDetailsDialogOpen(true)
     }
@@ -657,13 +644,8 @@ export default function AppointmentsPage() {
           products: updatedAppointment.products || appointment.products || []
         };
 
-        // Ensure price is properly set from the service
-        if (mergedAppointment.service) {
-          const service = services.find(s => s.name === mergedAppointment.service);
-          if (service) {
-            mergedAppointment.price = service.price;
-          }
-        }
+        // Use the price from the database/API, not from the services catalog
+        // The price should reflect what was agreed upon at booking time, not current catalog prices
 
         return mergedAppointment;
       }

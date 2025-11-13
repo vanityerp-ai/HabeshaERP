@@ -20,7 +20,7 @@ const UpcomingTasks = lazy(() => import("@/components/dashboard/upcoming-tasks")
 const TodaysAppointments = lazy(() => import("@/components/dashboard/todays-appointments").then(mod => ({ default: mod.TodaysAppointments })))
 const InventoryAlerts = lazy(() => import("@/components/dashboard/inventory-alerts").then(mod => ({ default: mod.InventoryAlerts })))
 const LocationPerformance = lazy(() => import("@/components/dashboard/location-performance").then(mod => ({ default: mod.LocationPerformance })))
-const IntegratedOverview = lazy(() => import("@/components/dashboard/integrated-overview"))
+const IntegratedOverview = lazy(() => import("@/components/dashboard/integrated-overview").then(mod => ({ default: mod.default })))
 const ActivityFeed = lazy(() => import("@/components/chat/activity-feed").then(mod => ({ default: mod.ActivityFeed })))
 const TransactionOverview = lazy(() => import("@/components/dashboard/transaction-overview").then(mod => ({ default: mod.TransactionOverview })))
 const SalesAnalytics = lazy(() => import("@/components/dashboard/sales-analytics").then(mod => ({ default: mod.SalesAnalytics })))
@@ -63,21 +63,15 @@ export default function DashboardPage() {
     setActiveTab(alertType)
   }
 
-  // Redirect staff and receptionists to appointments page
-  useEffect(() => {
-    if (user && (user.role === "staff" || user.role === "receptionist")) {
-      router.push("/dashboard/appointments")
-    }
-  }, [user, router])
-
-  // Check if user has permission to view dashboard page
+  // Check permission SYNCHRONOUSLY to prevent flash of unauthorized content
   if (!hasPermission("view_dashboard")) {
-    return (
-      <AccessDenied
-        description="You don't have permission to view the dashboard page."
-        backButtonHref="/dashboard/appointments"
-      />
-    )
+    // Trigger redirect in useEffect to avoid React state update warnings
+    useEffect(() => {
+      router.push("/dashboard/appointments")
+    }, [router])
+
+    // Return null immediately to prevent any rendering
+    return null
   }
 
   return (

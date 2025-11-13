@@ -623,7 +623,7 @@ export function PersonalizedRecommendations({
                     <div className="p-4 flex-1">
                       <div className="flex justify-between items-start">
                         <div>
-                          <h4 className="font-medium">{stylist.name}</h4>
+                          <h4 className="font-medium">{stylist.name.split(" ")[0]}</h4>
                           <p className="text-sm text-gray-500">{stylist.role}</p>
                           <div className="flex items-center gap-1 mt-1">
                             <div className="flex text-amber-400">

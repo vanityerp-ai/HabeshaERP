@@ -11,6 +11,7 @@ export interface ClientPreferences {
   preferredProducts: string[]
   allergies: string[]
   notes: string
+  preferredLocation?: string
 }
 
 // Client interface

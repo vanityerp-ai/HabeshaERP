@@ -32,7 +32,8 @@ export async function GET(request: Request) {
         preferredStylists: [],
         preferredServices: [],
         allergies: [],
-        notes: ''
+        notes: '',
+        preferredLocation: ''
       }
 
       if (client.preferences) {
@@ -44,6 +45,9 @@ export async function GET(request: Request) {
         }
       }
 
+      // Get preferredLocation from preferences, fallback to empty string
+      const preferredLocation = preferences.preferredLocation || ''
+
       return {
         id: client.userId, // Return User ID (not Client ID) for appointment creation
         name: client.name,
@@ -53,8 +57,8 @@ export async function GET(request: Request) {
         city: '', // Not stored in current schema
         state: '', // Not stored in current schema
         birthday: client.dateOfBirth?.toISOString().split('T')[0] || '',
-        preferredLocation: 'loc1', // Default for now
-        locations: ['loc1'], // Default for now
+        preferredLocation: preferredLocation,
+        locations: preferredLocation ? [preferredLocation] : [],
         status: 'Active' as const,
         avatar: generateInitials(client.name),
         segment: 'Regular' as const,

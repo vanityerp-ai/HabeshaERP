@@ -8,7 +8,7 @@ import { Button, type ButtonProps } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+// Tabs removed - POS is now products-only
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
@@ -57,8 +57,8 @@ export default function POSPage() {
   console.log("User permissions:", getUserPermissions())
   console.log("Has VIEW_POS permission:", hasPermission("view_pos"))
 
-  // Always allow access for receptionists
-  if (user?.role === "receptionist") {
+  // Always allow access for receptionists (case-insensitive)
+  if (user?.role.toUpperCase() === "RECEPTIONIST") {
     // Receptionist can always access POS
     console.log("Receptionist role detected - allowing POS access")
   }
@@ -74,7 +74,6 @@ export default function POSPage() {
   }
 
   // State management
-  const [activeTab, setActiveTab] = useState("services")
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [cartItems, setCartItems] = useState<any[]>([])
@@ -164,41 +163,24 @@ export default function POSPage() {
     fetchProducts()
   }, [fetchProducts])
 
-  // Get unique categories for services and products
-  const serviceCategories = categories.map(category => category.name)
+  // Get unique product categories (POS is now products-only)
   const productCategories = [...new Set(products.map(product => product.category))].sort()
 
-  // Filter items based on search term, active tab, and selected category
-  const filteredItems =
-    activeTab === "services"
-      ? services.filter(
-          (service) => {
-            // Filter by search term
-            const matchesSearch =
-              service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              (categories.find(cat => cat.id === service.category)?.name || '').toLowerCase().includes(searchTerm.toLowerCase());
+  // Filter products based on search term and selected category (POS is now products-only)
+  const filteredItems = products.filter(
+    (product) => {
+      // Filter by search term
+      const matchesSearch =
+        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (product.description && product.description.toLowerCase().includes(searchTerm.toLowerCase()));
 
-            // Filter by selected category if one is active
-            const serviceCategoryName = categories.find(cat => cat.id === service.category || cat.name === service.category)?.name;
-            const matchesCategory = !activeCategory || serviceCategoryName === activeCategory;
+      // Filter by selected category if one is active
+      const matchesCategory = !activeCategory || product.category === activeCategory;
 
-            return matchesSearch && matchesCategory;
-          }
-        )
-      : products.filter(
-          (product) => {
-            // Filter by search term
-            const matchesSearch =
-              product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              product.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              (product.description && product.description.toLowerCase().includes(searchTerm.toLowerCase()));
-
-            // Filter by selected category if one is active
-            const matchesCategory = !activeCategory || product.category === activeCategory;
-
-            return matchesSearch && matchesCategory && product.isActive;
-          }
-        )
+      return matchesSearch && matchesCategory && product.isActive;
+    }
+  )
 
   // Get checkout settings for dynamic tax rate
   const checkoutSettings = SettingsStorage.getCheckoutSettings()
@@ -365,6 +347,8 @@ export default function POSPage() {
           id: generateSequentialTransactionId('TX-'),
           clientId: selectedClient?.id,
           clientName: selectedClient?.name || "Walk-in Customer",
+          staffId: user?.id,
+          staffName: user?.name || "Staff",
           type: "product_sale" as TransactionType,
           category: "Product Sale",
           description: productDescriptions,
@@ -400,6 +384,8 @@ export default function POSPage() {
           id: generateSequentialTransactionId('TX-'),
           clientId: selectedClient?.id,
           clientName: selectedClient?.name || "Walk-in Customer",
+          staffId: user?.id,
+          staffName: user?.name || "Staff",
           type: "service_sale" as TransactionType,
           category: "Service Sale",
           description: `POS Service Sale - ${serviceItems.length} service${serviceItems.length > 1 ? 's' : ''}`,
@@ -609,79 +595,8 @@ export default function POSPage() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <Tabs defaultValue="services" value={activeTab} onValueChange={setActiveTab}>
-              <div className="px-6">
-                <TabsList className="w-full">
-                  <TabsTrigger value="services" className="flex-1">
-                    Services
-                  </TabsTrigger>
-                  <TabsTrigger value="products" className="flex-1">
-                    Products
-                  </TabsTrigger>
-                </TabsList>
-              </div>
-
-              <TabsContent value="services" className="m-0 border-t">
-                {/* Service Categories - Horizontal Layout */}
-                <div className="p-4 border-b">
-                  <div className="flex overflow-x-auto -mx-2 px-2 pb-2 hide-scrollbar">
-                    <div className="flex space-x-2 min-w-full">
-                      <Button
-                        variant={activeCategory === null ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setActiveCategory(null)}
-                        className="flex-shrink-0"
-                      >
-                        All Categories
-                      </Button>
-                      {serviceCategories.map((category) => (
-                        <Button
-                          key={category}
-                          variant={activeCategory === category ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setActiveCategory(category)}
-                          className="flex-shrink-0"
-                        >
-                          {category}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Services Grid */}
-                <div className="p-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                    {filteredItems.map((service) => (
-                      <Card key={service.id} className="overflow-hidden">
-                        <CardHeader className="p-4 pb-2">
-                          <CardTitle className="text-base">{service.name}</CardTitle>
-                          <CardDescription>
-                            <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full mr-2">
-                              {categories.find(cat => cat.id === service.category)?.name || service.category}
-                            </span>
-                            {service.type === 'service' && (service as any).duration} min
-                          </CardDescription>
-                        </CardHeader>
-                        <CardFooter className="p-4 pt-2 flex justify-between">
-                          <p className="font-medium"><CurrencyDisplay amount={service.price} /></p>
-                          <Button size="sm" onClick={() => addToCart(service, "service")}>
-                            <Plus className="h-4 w-4 mr-1" /> Add
-                          </Button>
-                        </CardFooter>
-                      </Card>
-                    ))}
-
-                    {filteredItems.length === 0 && (
-                      <div className="col-span-full text-center py-8 text-muted-foreground">
-                        No services found matching your search.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="products" className="m-0 border-t">
+            {/* POS is now products-only - Services tab removed */}
+            <div className="m-0 border-t">
                 {/* Product Categories - Horizontal Layout */}
                 <div className="p-4 border-b">
                   <div className="flex overflow-x-auto -mx-2 px-2 pb-2 hide-scrollbar">
@@ -758,8 +673,7 @@ export default function POSPage() {
                     </div>
                   )}
                 </div>
-              </TabsContent>
-            </Tabs>
+            </div>
           </CardContent>
         </Card>
 

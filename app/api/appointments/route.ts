@@ -234,6 +234,14 @@ export async function GET(request: NextRequest) {
           // Include all services and products
           additionalServices,
           products,
+          // Include payment fields
+          paymentStatus: apt.paymentStatus || undefined,
+          paymentMethod: apt.paymentMethod || undefined,
+          paymentDate: apt.paymentDate?.toISOString() || undefined,
+          discountPercentage: apt.discountPercentage ? parseFloat(apt.discountPercentage.toString()) : undefined,
+          discountAmount: apt.discountAmount ? parseFloat(apt.discountAmount.toString()) : undefined,
+          originalAmount: apt.originalAmount ? parseFloat(apt.originalAmount.toString()) : undefined,
+          finalAmount: apt.finalAmount ? parseFloat(apt.finalAmount.toString()) : undefined,
         };
       });
 
@@ -390,18 +398,23 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Check if location exists
-    const locationExists = await prisma.location.findUnique({
-      where: { id: locationId },
-      select: { id: true }
-    });
+    // Check if location exists (skip validation for special virtual locations)
+    const virtualLocations = ['home', 'online'];
+    if (!virtualLocations.includes(locationId)) {
+      const locationExists = await prisma.location.findUnique({
+        where: { id: locationId },
+        select: { id: true }
+      });
 
-    if (!locationExists) {
-      console.error('❌ Location not found:', locationId);
-      return NextResponse.json({
-        error: "Location not found",
-        details: `Location with ID ${locationId} does not exist. Please select a valid location.`
-      }, { status: 400 });
+      if (!locationExists) {
+        console.error('❌ Location not found:', locationId);
+        return NextResponse.json({
+          error: "Location not found",
+          details: `Location with ID ${locationId} does not exist. Please select a valid location.`
+        }, { status: 400 });
+      }
+    } else {
+      console.log(`✅ Skipping location validation for virtual location: ${locationId}`);
     }
 
     console.log('✅ All foreign key references validated');
@@ -801,7 +814,93 @@ export async function PUT(request: NextRequest) {
       console.log('📝 Storing statusHistory:', updateData.statusHistory);
     }
 
+    // Handle payment fields
+    if (updateData.paymentStatus !== undefined) {
+      prismaUpdateData.paymentStatus = updateData.paymentStatus;
+      console.log('📝 Storing paymentStatus:', updateData.paymentStatus);
+    }
+    if (updateData.paymentMethod !== undefined) {
+      prismaUpdateData.paymentMethod = updateData.paymentMethod;
+      console.log('📝 Storing paymentMethod:', updateData.paymentMethod);
+    }
+    if (updateData.paymentDate !== undefined) {
+      prismaUpdateData.paymentDate = updateData.paymentDate ? new Date(updateData.paymentDate) : null;
+      console.log('📝 Storing paymentDate:', updateData.paymentDate);
+    }
+    if (updateData.discountPercentage !== undefined) {
+      prismaUpdateData.discountPercentage = updateData.discountPercentage;
+    }
+    if (updateData.discountAmount !== undefined) {
+      prismaUpdateData.discountAmount = updateData.discountAmount;
+    }
+    if (updateData.originalAmount !== undefined) {
+      prismaUpdateData.originalAmount = updateData.originalAmount;
+    }
+    if (updateData.finalAmount !== undefined) {
+      prismaUpdateData.finalAmount = updateData.finalAmount;
+    }
+
     console.log('📝 Prisma update data:', prismaUpdateData);
+
+    // Handle products update if provided
+    if (updateData.products !== undefined) {
+      console.log('📝 Updating products for appointment:', id);
+
+      // Delete existing products
+      await prisma.appointmentProduct.deleteMany({
+        where: { appointmentId: id },
+      });
+
+      // Create new products
+      if (updateData.products && updateData.products.length > 0) {
+        for (const product of updateData.products) {
+          // If product has a productId, use it; otherwise skip
+          if (product.productId) {
+            await prisma.appointmentProduct.create({
+              data: {
+                appointmentId: id,
+                productId: product.productId,
+                quantity: product.quantity || 1,
+                price: product.price || 0,
+              },
+            });
+          } else {
+            console.warn('⚠️ Product without productId, skipping:', product);
+          }
+        }
+        console.log('✅ Products updated');
+      }
+    }
+
+    // Handle additionalServices update if provided
+    if (updateData.additionalServices !== undefined) {
+      console.log('📝 Updating services for appointment:', id);
+
+      // Delete existing services
+      await prisma.appointmentService.deleteMany({
+        where: { appointmentId: id },
+      });
+
+      // Create new services
+      if (updateData.additionalServices && updateData.additionalServices.length > 0) {
+        for (const service of updateData.additionalServices) {
+          // If service has a serviceId, use it; otherwise skip
+          if (service.serviceId) {
+            await prisma.appointmentService.create({
+              data: {
+                appointmentId: id,
+                serviceId: service.serviceId,
+                price: service.price || 0,
+                duration: service.duration || 0,
+              },
+            });
+          } else {
+            console.warn('⚠️ Service without serviceId, skipping:', service);
+          }
+        }
+        console.log('✅ Services updated');
+      }
+    }
 
     // Update in database
     const appointment = await prisma.appointment.update({

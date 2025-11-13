@@ -328,10 +328,13 @@ export function generateTransactionIdWithPrefix(prefix: string): string {
   return `${prefix}${numStr}`;
 }
 
-// Global sequential transaction ID generator
+// Global sequential transaction ID generator with timestamp to ensure uniqueness across sessions
 let transactionSequence = 1;
 export function generateSequentialTransactionId(prefix: string = 'TX-'): string {
-  const id = `${prefix}${transactionSequence.toString().padStart(6, '0')}`;
+  // Use timestamp + sequence to ensure uniqueness across page reloads
+  const timestamp = Date.now();
+  const sequence = transactionSequence.toString().padStart(3, '0');
+  const id = `${prefix}${timestamp}-${sequence}`;
   transactionSequence++;
   return id;
 }

@@ -130,7 +130,7 @@ export function EnhancedStylistCard({
 
             {/* Info */}
             <div className="flex-1 min-w-0">
-              <h4 className="font-medium text-sm truncate">{stylist.name}</h4>
+              <h4 className="font-medium text-sm truncate">{stylist.name.split(" ")[0]}</h4>
               <p className="text-xs text-gray-500 capitalize">{stylist.role.replace('_', ' ')}</p>
               {stylist.rating && (
                 <div className="flex items-center gap-1 mt-1">
@@ -224,7 +224,7 @@ export function EnhancedStylistCard({
 
           {/* Name and role at bottom */}
           <div className="absolute bottom-3 left-3 text-white">
-            <h3 className="font-semibold text-lg">{stylist.name}</h3>
+            <h3 className="font-semibold text-lg">{stylist.name.split(" ")[0]}</h3>
             <div className="flex items-center gap-2">
               <RoleIcon className="w-4 h-4" />
               <span className="text-sm capitalize">{stylist.role.replace('_', ' ')}</span>

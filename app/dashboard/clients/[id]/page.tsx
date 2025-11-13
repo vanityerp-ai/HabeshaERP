@@ -36,6 +36,7 @@ import { CurrencyDisplay } from "@/components/ui/currency-display"
 import { useCurrency } from "@/lib/currency-provider"
 import { useToast } from "@/components/ui/use-toast"
 import { IndividualClientCommunication } from "@/components/clients/individual-client-communication"
+import { useLocations } from "@/lib/location-provider"
 
 interface ClientProfilePageProps {
   params: Promise<{
@@ -49,6 +50,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
   const { getClient } = useClients()
   const { formatCurrency } = useCurrency()
   const { toast } = useToast()
+  const { getLocationName } = useLocations()
   const [client, setClient] = useState<Client | null>(null)
   const [loading, setLoading] = useState(true)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -267,11 +269,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                 <div className="flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-muted-foreground" />
                   <span>
-                    Preferred: {client.preferredLocation === "loc1"
-                      ? "Downtown"
-                      : client.preferredLocation === "loc2"
-                        ? "Westside"
-                        : "Northside"}
+                    Preferred: {client.preferredLocation ? getLocationName(client.preferredLocation) : "Not set"}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -441,14 +439,14 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                   </td>
                                   <td className="py-3 px-4">
                                     <div>
-                                      <p className="font-medium">{appointment.title || appointment.service}</p>
+                                      <p className="font-medium">{appointment.title || "Service"}</p>
                                       {appointment.bookingReference && (
                                         <p className="text-xs text-muted-foreground">Ref: {appointment.bookingReference}</p>
                                       )}
                                     </div>
                                   </td>
-                                  <td className="py-3 px-4">{appointment.description?.replace("with ", "") || appointment.staffName}</td>
-                                  <td className="py-3 px-4">{appointment.location || "Downtown"}</td>
+                                  <td className="py-3 px-4">{appointment.description?.replace("with ", "") || appointment.staffName || "-"}</td>
+                                  <td className="py-3 px-4">{appointment.location || "-"}</td>
                                   <td className="py-3 px-4">
                                     <Badge variant={getAppointmentStatusVariant(appointment.status)}>
                                       {capitalizeFirstLetter(appointment.status)}

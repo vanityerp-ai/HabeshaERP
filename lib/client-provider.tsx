@@ -19,6 +19,7 @@ interface ClientContextType {
   updateClientSegment: (id: string, segment: Client["segment"]) => Client | undefined
   updateClientStatus: (id: string, status: Client["status"]) => Client | undefined
   // Auto-registration methods
+  findClientByPhone: (phone: string) => Client | undefined
   findClientByPhoneAndName: (phone: string, name: string) => Client | undefined
   autoRegisterClient: (clientData: {
     name: string
@@ -40,6 +41,7 @@ const ClientContext = createContext<ClientContextType>({
   updateClientPreferences: () => undefined,
   updateClientSegment: () => undefined,
   updateClientStatus: () => undefined,
+  findClientByPhone: () => undefined,
   findClientByPhoneAndName: () => undefined,
   autoRegisterClient: async () => null,
   normalizePhoneNumber: () => "",
@@ -212,22 +214,10 @@ export function ClientProvider({ children }: { children: React.ReactNode }) {
         variant: "destructive"
       })
 
-      // Fallback to local creation if API fails
-      const nameParts = clientData.name.split(" ")
-      const initials = nameParts.length > 1
-        ? `${nameParts[0][0]}${nameParts[1][0]}`
-        : nameParts[0].substring(0, 2)
-
-      const fallbackClient: Client = {
-        id: uuidv4(),
-        avatar: initials.toUpperCase(),
-        segment: "New",
-        status: "Active",
-        ...clientData,
-      }
-
-      setClients(prevClients => [...prevClients, fallbackClient])
-      return fallbackClient
+      // DO NOT create fallback client - this causes database validation errors
+      // when appointments are created with non-existent client IDs
+      // Instead, throw the error so the caller can handle it properly
+      throw error
     }
   }
 
@@ -306,6 +296,18 @@ export function ClientProvider({ children }: { children: React.ReactNode }) {
     return digitsOnly
   }
 
+  // Find client by phone number only (for phone-first lookup)
+  const findClientByPhone = (phone: string): Client | undefined => {
+    if (!phone) return undefined
+
+    const normalizedPhone = normalizePhoneNumber(phone)
+
+    return clients.find(client => {
+      const clientNormalizedPhone = normalizePhoneNumber(client.phone)
+      return clientNormalizedPhone === normalizedPhone
+    })
+  }
+
   // Find client by phone and name (duplicate detection)
   const findClientByPhoneAndName = (phone: string, name: string): Client | undefined => {
     const normalizedPhone = normalizePhoneNumber(phone)
@@ -329,15 +331,8 @@ export function ClientProvider({ children }: { children: React.ReactNode }) {
     preferredLocation?: string
   }): Promise<Client | null> => {
     try {
-      // Check for existing client
-      const existingClient = findClientByPhoneAndName(clientData.phone, clientData.name)
-
-      if (existingClient) {
-        console.log(`Client already exists: ${existingClient.name} (${existingClient.phone})`)
-        return existingClient // Return existing client instead of null
-      }
-
       // Create new client with auto-registration metadata
+      // The addClient function will handle duplicate checking via API
       const newClientData = {
         name: clientData.name,
         email: clientData.email || "",
@@ -402,6 +397,7 @@ export function ClientProvider({ children }: { children: React.ReactNode }) {
         updateClientPreferences,
         updateClientSegment,
         updateClientStatus,
+        findClientByPhone,
         findClientByPhoneAndName,
         autoRegisterClient,
         normalizePhoneNumber,

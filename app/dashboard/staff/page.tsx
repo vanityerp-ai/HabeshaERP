@@ -1,9 +1,9 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-provider"
 import { useStaff } from "@/lib/use-staff-data"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -12,11 +12,11 @@ import { StaffDirectory } from "@/components/staff/staff-directory"
 import { StaffSchedule } from "@/components/staff/staff-schedule"
 import { StaffPerformance } from "@/components/staff/staff-performance"
 import { NewStaffDialog } from "@/components/new-staff-dialog"
-import { AccessDenied } from "@/components/access-denied"
 import { Plus, Search, UserCog } from "lucide-react"
 import { StaffStorage } from "@/lib/staff-storage"
 
 export default function StaffPage() {
+  const router = useRouter()
   const { user, hasPermission } = useAuth()
   const { staff: realStaff } = useStaff()
   const [search, setSearch] = useState("")
@@ -37,20 +37,19 @@ export default function StaffPage() {
     console.log("New staff added")
   }
 
-  // Check if user has permission to view staff page
-  if (!hasPermission("view_staff")) {
-    return (
-      <AccessDenied
-        description="You don't have permission to view the staff management page."
-        backButtonHref="/dashboard"
-      />
-    )
-  }
-
-  const router = useRouter()
-
   const navigateToHRManagement = () => {
     router.push("/dashboard/hr")
+  }
+
+  // Check permission SYNCHRONOUSLY to prevent flash of unauthorized content
+  if (!hasPermission("view_staff")) {
+    // Trigger redirect in useEffect to avoid React state update warnings
+    useEffect(() => {
+      router.push("/dashboard/appointments")
+    }, [router])
+
+    // Return null immediately to prevent any rendering
+    return null
   }
 
   return (

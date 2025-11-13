@@ -237,13 +237,13 @@ export function TransactionOverview() {
                     <div className="flex items-center gap-2">
                       {getSourceIcon(transaction.source)}
                       <span className="text-sm">
-                        {transaction.source.replace('_', ' ')}
+                        {transaction.source ? transaction.source.replace('_', ' ') : 'Unknown'}
                       </span>
                     </div>
                   </TableCell>
                   <TableCell>
                     <Badge className={getTypeColor(transaction.type)}>
-                      {transaction.type.replace('_', ' ')}
+                      {transaction.type ? transaction.type.replace('_', ' ') : 'Unknown'}
                     </Badge>
                   </TableCell>
                   <TableCell className="max-w-xs truncate">

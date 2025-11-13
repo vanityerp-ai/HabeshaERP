@@ -26,8 +26,7 @@ export function AppointmentNotificationHandler({
   useRealTimeEvent(
     RealTimeEventType.APPOINTMENT_CREATED,
     (payload, event) => {
-      // Only show notifications for admin users
-      if (!user || user.role !== "ADMIN") {
+      if (!user) {
         return
       }
 
@@ -41,6 +40,31 @@ export function AppointmentNotificationHandler({
         bookingReference,
         appointment
       } = payload
+
+      // Role-based notification filtering
+      const userRole = user.role.toUpperCase()
+      const isAdminRole = userRole === "ADMIN" || userRole === "SUPER_ADMIN" || userRole === "ORG_ADMIN"
+      const isManagerRole = userRole === "MANAGER" || userRole === "LOCATION_MANAGER"
+      const isReceptionistRole = userRole === "RECEPTIONIST"
+      const isStaffRole = userRole === "STAFF"
+
+      // Admin, Manager, and Receptionist receive ALL appointment notifications
+      if (isAdminRole || isManagerRole || isReceptionistRole) {
+        // Show notification (continue to existing code below)
+      }
+      // Staff users only receive notifications for appointments where they are assigned
+      else if (isStaffRole) {
+        const appointmentStaffId = appointment?.staffId || event.userId
+        if (appointmentStaffId !== user.id) {
+          console.log(`🔕 Skipping notification - staff user ${user.id} not assigned to appointment (assigned to: ${appointmentStaffId})`)
+          return
+        }
+        console.log(`🔔 Showing notification - staff user ${user.id} is assigned to this appointment`)
+      }
+      // Other roles don't receive appointment notifications
+      else {
+        return
+      }
 
       // Format the date for display
       let formattedDate = "Unknown date"
@@ -113,14 +137,38 @@ export function AppointmentNotificationHandler({
   useRealTimeEvent(
     RealTimeEventType.APPOINTMENT_STATUS_CHANGED,
     (payload, event) => {
-      // Only show notifications for admin users
-      if (!user || user.role !== "ADMIN") {
+      if (!user) {
         return
       }
 
       console.log("📋 Appointment status changed:", payload)
 
       const { appointment, newStatus, previousStatus } = payload
+
+      // Role-based notification filtering (same logic as appointment created)
+      const userRole = user.role.toUpperCase()
+      const isAdminRole = userRole === "ADMIN" || userRole === "SUPER_ADMIN" || userRole === "ORG_ADMIN"
+      const isManagerRole = userRole === "MANAGER" || userRole === "LOCATION_MANAGER"
+      const isReceptionistRole = userRole === "RECEPTIONIST"
+      const isStaffRole = userRole === "STAFF"
+
+      // Admin, Manager, and Receptionist receive ALL appointment status change notifications
+      if (isAdminRole || isManagerRole || isReceptionistRole) {
+        // Show notification (continue to existing code below)
+      }
+      // Staff users only receive notifications for appointments where they are assigned
+      else if (isStaffRole) {
+        const appointmentStaffId = appointment?.staffId || event.userId
+        if (appointmentStaffId !== user.id) {
+          console.log(`🔕 Skipping status change notification - staff user ${user.id} not assigned to appointment`)
+          return
+        }
+        console.log(`🔔 Showing status change notification - staff user ${user.id} is assigned to this appointment`)
+      }
+      // Other roles don't receive appointment status change notifications
+      else {
+        return
+      }
 
       // Only show notifications for significant status changes
       if (newStatus === 'cancelled' || newStatus === 'completed') {

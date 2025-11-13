@@ -43,6 +43,7 @@ import {
 import { useTransactions } from "@/lib/transaction-provider"
 import { useStaff } from "@/lib/use-staff-data"
 import { type Transaction, type TransactionSource } from "@/lib/transaction-types"
+import { SettingsStorage } from "@/lib/settings-storage"
 
 
 // Accounting-specific report types
@@ -88,35 +89,52 @@ export default function AccountingPage() {
 
   // Handler for printing receipt (placeholder)
   const handlePrintReceipt = (tx: Transaction) => {
-    // Generate bilingual, thermal-printer-friendly receipt HTML
-    const itemsHtml = (tx.items || []).map(function(item) {
-      return `
-        <div style="display: flex; font-size: 12px; border-bottom: 1px dashed #aaa;">
-          <div style="flex: 2;">${item.name}</div>
-          <div style="flex: 1;">${item.type}</div>
-          <div style="flex: 1; text-align: right;">QAR ${item.originalPrice ?? '-'}</div>
-          <div style="flex: 1; text-align: right;">${item.discountApplied ? (item.discountPercentage || 0) + '%' : '-'}</div>
-          <div style="flex: 1; text-align: right;">QAR ${item.totalPrice}</div>
-        </div>
-        <div style="display: flex; font-size: 11px; direction: rtl; border-bottom: 1px dashed #aaa;">
-          <div style="flex: 2;">${item.name}</div>
-          <div style="flex: 1;">${item.type}</div>
-          <div style="flex: 1; text-align: left;">${item.originalPrice ? toArabicNumber(item.originalPrice) + ' ر.ق' : '-'}</div>
-          <div style="flex: 1; text-align: left;">${item.discountApplied ? toArabicNumber(item.discountPercentage || 0) + '٪' : '-'}</div>
-          <div style="flex: 1; text-align: left;">${item.totalPrice ? toArabicNumber(item.totalPrice) + ' ر.ق' : '-'}</div>
-        </div>
-      `;
-    }).join('');
+    // Get company branding settings
+    const settings = SettingsStorage.getGeneralSettings()
+    const companyName = settings.branding?.companyName || settings.businessName || "Vanity Hub"
+
+    // Use transactionNumber (5-digit) if available, otherwise fall back to id
+    const displayTransactionId = tx.transactionNumber || tx.id;
 
     // Helper for Arabic numerals
     function toArabicNumber(num: number|string) {
       return String(num).replace(/[0-9]/g, d => '٠١٢٣٤٥٦٧٨٩'[Number(d)]);
     }
 
+    // Simple English to Arabic phonetic transliteration
+    function toPhoneticArabic(text: string): string {
+      const map: Record<string, string> = {
+        'a': 'ا', 'b': 'ب', 'c': 'ك', 'd': 'د', 'e': 'ي', 'f': 'ف', 'g': 'ج', 'h': 'ه', 'i': 'ي', 'j': 'ج', 'k': 'ك', 'l': 'ل', 'm': 'م', 'n': 'ن', 'o': 'و', 'p': 'ب', 'q': 'ق', 'r': 'ر', 's': 'س', 't': 'ت', 'u': 'و', 'v': 'ف', 'w': 'و', 'x': 'كس', 'y': 'ي', 'z': 'ز', 'A': 'ا', 'B': 'ب', 'C': 'ك', 'D': 'د', 'E': 'ي', 'F': 'ف', 'G': 'ج', 'H': 'ه', 'I': 'ي', 'J': 'ج', 'K': 'ك', 'L': 'ل', 'M': 'م', 'N': 'ن', 'O': 'و', 'P': 'ب', 'Q': 'ق', 'R': 'ر', 'S': 'س', 'T': 'ت', 'U': 'و', 'V': 'ف', 'W': 'و', 'X': 'كس', 'Y': 'ي', 'Z': 'ز', ' ': ' ', '-': '-', '_': '_', '.': '.', ',': ',', '0': '٠', '1': '١', '2': '٢', '3': '٣', '4': '٤', '5': '٥', '6': '٦', '7': '٧', '8': '٨', '9': '٩'
+      };
+      return text.split('').map(char => map[char] || char).join('');
+    }
+
+    // Generate bilingual, thermal-printer-friendly receipt HTML - Single row with English and Arabic
+    const itemsHtml = (tx.items || []).map(function(item) {
+      return `
+        <div style="border-bottom: 1px dashed #aaa; padding: 4px 0;">
+          <div style="display: flex; font-size: 12px; margin-bottom: 2px;">
+            <div style="flex: 2;">${item.name}</div>
+            <div style="flex: 1;">${item.type}</div>
+            <div style="flex: 1; text-align: right;">QAR ${item.originalPrice ?? '-'}</div>
+            <div style="flex: 1; text-align: right;">${item.discountApplied ? (item.discountPercentage || 0) + '%' : '-'}</div>
+            <div style="flex: 1; text-align: right;">QAR ${item.totalPrice}</div>
+          </div>
+          <div style="display: flex; font-size: 10px; direction: rtl; color: #666;">
+            <div style="flex: 2;">${toPhoneticArabic(item.name)}</div>
+            <div style="flex: 1;">${toPhoneticArabic(item.type)}</div>
+            <div style="flex: 1; text-align: left;">${item.originalPrice ? toArabicNumber(item.originalPrice) + ' ر.ق' : '-'}</div>
+            <div style="flex: 1; text-align: left;">${item.discountApplied ? toArabicNumber(item.discountPercentage || 0) + '٪' : '-'}</div>
+            <div style="flex: 1; text-align: left;">${item.totalPrice ? toArabicNumber(item.totalPrice) + ' ر.ق' : '-'}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
     const receiptHtml = `
       <html>
         <head>
-          <title>Receipt - ${tx.id}</title>
+          <title>Receipt</title>
           <style>
             body { width: 300px; font-family: Arial, sans-serif; font-size: 12px; color: #000; margin: 0 auto; }
             .header { text-align: center; margin-bottom: 8px; }
@@ -135,50 +153,72 @@ export default function AccountingPage() {
         </head>
         <body>
           <div class="header">
-            <div class="title">Vanity Hub</div>
+            <div class="title">${companyName}</div>
             <div class="subtitle">Receipt</div>
             <div class="subtitle-ar">فاتورة</div>
           </div>
           <div class="info">
-            <div><span class="label">Transaction ID:</span> ${tx.id}</div>
-            <div class="label-ar">معرّف المعاملة: ${tx.id}</div>
-            <div><span class="label">Date:</span> ${(typeof tx.date === 'string' ? new Date(tx.date).toLocaleString() : tx.date.toLocaleString())}</div>
-            <div class="label-ar">التاريخ: ${(typeof tx.date === 'string' ? toArabicNumber(new Date(tx.date).toLocaleString()) : toArabicNumber(tx.date.toLocaleString()))}</div>
-            <div><span class="label">Client:</span> ${tx.clientName || '-'}</div>
-            <div class="label-ar">العميل: ${tx.clientName || '-'}</div>
-            <div><span class="label">Staff:</span> ${tx.staffName || '-'}</div>
-            <div class="label-ar">الموظف: ${tx.staffName || '-'}</div>
-            <div><span class="label">Location:</span> ${getLocationName(tx.location)}</div>
-            <div class="label-ar">الموقع: ${getLocationName(tx.location)}</div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+              <span><span class="label">Transaction ID:</span> ${displayTransactionId}</span>
+              <span class="label-ar" style="direction: rtl;">معرّف المعاملة: ${displayTransactionId}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+              <span><span class="label">Date:</span> ${(typeof tx.date === 'string' ? new Date(tx.date).toLocaleString() : tx.date.toLocaleString())}</span>
+              <span class="label-ar" style="direction: rtl;">التاريخ: ${(typeof tx.date === 'string' ? toArabicNumber(new Date(tx.date).toLocaleString()) : toArabicNumber(tx.date.toLocaleString()))}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+              <span><span class="label">Client:</span> ${tx.clientName || '-'}</span>
+              <span class="label-ar" style="direction: rtl;">العميل: ${tx.clientName ? toPhoneticArabic(tx.clientName) : '-'}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+              <span><span class="label">Staff:</span> ${tx.staffName || '-'}</span>
+              <span class="label-ar" style="direction: rtl;">الموظف: ${tx.staffName ? toPhoneticArabic(tx.staffName) : '-'}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+              <span><span class="label">Location:</span> ${(tx as any).locationName || getLocationName(tx.location)}</span>
+              <span class="label-ar" style="direction: rtl;">الموقع: ${toPhoneticArabic((tx as any).locationName || getLocationName(tx.location))}</span>
+            </div>
           </div>
           <hr/>
-          <div style="display: flex; font-weight: bold; border-bottom: 1px solid #000; padding-bottom: 2px;">
-            <div style="flex: 2;">Item</div>
-            <div style="flex: 1;">Type</div>
-            <div style="flex: 1; text-align: right;">Price</div>
-            <div style="flex: 1; text-align: right;">Discount</div>
-            <div style="flex: 1; text-align: right;">Total</div>
-          </div>
-          <div style="display: flex; font-weight: bold; border-bottom: 1px solid #000; padding-bottom: 2px; direction: rtl; font-size: 11px;">
-            <div style="flex: 2;">الصنف</div>
-            <div style="flex: 1;">النوع</div>
-            <div style="flex: 1; text-align: left;">السعر</div>
-            <div style="flex: 1; text-align: left;">الخصم</div>
-            <div style="flex: 1; text-align: left;">الإجمالي</div>
+          <div style="border-bottom: 1px solid #000; padding-bottom: 2px; margin-bottom: 2px;">
+            <div style="display: flex; font-weight: bold; font-size: 12px;">
+              <div style="flex: 2;">Item</div>
+              <div style="flex: 1;">Type</div>
+              <div style="flex: 1; text-align: right;">Price</div>
+              <div style="flex: 1; text-align: right;">Discount</div>
+              <div style="flex: 1; text-align: right;">Total</div>
+            </div>
+            <div style="display: flex; font-weight: bold; font-size: 10px; direction: rtl; color: #666;">
+              <div style="flex: 2;">الصنف</div>
+              <div style="flex: 1;">النوع</div>
+              <div style="flex: 1; text-align: left;">السعر</div>
+              <div style="flex: 1; text-align: left;">الخصم</div>
+              <div style="flex: 1; text-align: left;">الإجمالي</div>
+            </div>
           </div>
           ${itemsHtml}
           <hr/>
           <div class="summary">
-            <div><span class="label">Payment Method:</span> ${tx.paymentMethod || '-'}</div>
-            <div class="label-ar">طريقة الدفع: ${tx.paymentMethod || '-'}</div>
-            <div><span class="label">Status:</span> ${tx.status || '-'}</div>
-            <div class="label-ar">الحالة: ${tx.status || '-'}</div>
-            <div><span class="label">Original Total:</span> ${tx.originalServiceAmount ? '<s>QAR ' + tx.originalServiceAmount + '</s>' : '-'}</div>
-            <div class="label-ar">الإجمالي الأصلي: ${tx.originalServiceAmount ? '<s>' + toArabicNumber(tx.originalServiceAmount) + ' ر.ق</s>' : '-'}</div>
-            <div><span class="label">Discount:</span> ${tx.discountAmount ? '<span class="discount">QAR ' + tx.discountAmount + ' (' + (tx.discountPercentage || 0) + '%)</span>' : '-'}</div>
-            <div class="label-ar">الخصم: ${tx.discountAmount ? '<span class="discount">' + toArabicNumber(tx.discountAmount) + ' ر.ق (' + toArabicNumber(tx.discountPercentage || 0) + '٪)</span>' : '-'}</div>
-            <div class="total"><span class="label">Final Amount Paid:</span> QAR ${tx.amount}</div>
-            <div class="total label-ar">المبلغ النهائي المدفوع: ${toArabicNumber(tx.amount)} ر.ق</div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+              <span><span class="label">Payment Method:</span> ${tx.paymentMethod || '-'}</span>
+              <span class="label-ar" style="direction: rtl;">طريقة الدفع: ${tx.paymentMethod || '-'}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+              <span><span class="label">Status:</span> ${tx.status || '-'}</span>
+              <span class="label-ar" style="direction: rtl;">الحالة: ${tx.status || '-'}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+              <span><span class="label">Original Total:</span> ${tx.originalServiceAmount ? '<s>QAR ' + tx.originalServiceAmount + '</s>' : '-'}</span>
+              <span class="label-ar" style="direction: rtl;">الإجمالي الأصلي: ${tx.originalServiceAmount ? '<s>' + toArabicNumber(tx.originalServiceAmount) + ' ر.ق</s>' : '-'}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+              <span><span class="label">Discount:</span> ${tx.discountAmount ? '<span class="discount">QAR ' + tx.discountAmount + ' (' + (tx.discountPercentage || 0) + '%)</span>' : '-'}</span>
+              <span class="label-ar" style="direction: rtl;">الخصم: ${tx.discountAmount ? '<span class="discount">' + toArabicNumber(tx.discountAmount) + ' ر.ق (' + toArabicNumber(tx.discountPercentage || 0) + '٪)</span>' : '-'}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-top: 6px; padding-top: 6px; border-top: 1px solid #000;">
+              <span class="total"><span class="label">Final Amount Paid:</span> QAR ${tx.amount}</span>
+              <span class="total label-ar" style="direction: rtl;">المبلغ النهائي المدفوع: ${toArabicNumber(tx.amount)} ر.ق</span>
+            </div>
           </div>
           <div class="thankyou">Thank you for your business!</div>
           <div class="thankyou-ar">شكراً لتعاملكم معنا!</div>
@@ -672,14 +712,14 @@ export default function AccountingPage() {
                       const isConsolidated = tx.type === 'consolidated_sale';
                       return (
                         <tr key={tx.id} className="align-top border-b">
-                          <td className="px-2 py-2 font-mono whitespace-nowrap">{tx.id}</td>
+                          <td className="px-2 py-2 font-mono whitespace-nowrap">{(tx as any).transactionNumber || tx.id}</td>
                           <td className="px-2 py-2">
                             <span className="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
-                              {tx.source === 'calendar' ? 'Walk-in' : tx.source.charAt(0).toUpperCase() + tx.source.slice(1)}
+                              {tx.source === 'calendar' ? 'Walk-in' : tx.source ? tx.source.charAt(0).toUpperCase() + tx.source.slice(1) : 'Unknown'}
                             </span>
                           </td>
                           <td className="px-2 py-2 whitespace-nowrap">{typeof tx.date === 'string' ? new Date(tx.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : tx.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</td>
-                          <td className="px-2 py-2 whitespace-nowrap">{tx.clientName || ''}</td>
+                          <td className="px-2 py-2 whitespace-nowrap">{tx.clientName || (tx as any).clientPhone || ''}</td>
                           <td className="px-2 py-2 whitespace-nowrap">{tx.type.replace('_', ' ')}</td>
                           <td className="px-2 py-2">
                             <div>{tx.description}</div>
@@ -723,7 +763,7 @@ export default function AccountingPage() {
                           </td>
                           <td className="px-2 py-2 font-bold">QAR {tx.amount}</td>
                           <td className="px-2 py-2 whitespace-nowrap">{tx.paymentMethod}</td>
-                          <td className="px-2 py-2 whitespace-nowrap">{getLocationName(tx.location)}</td>
+                          <td className="px-2 py-2 whitespace-nowrap">{(tx as any).locationName || getLocationName(tx.location)}</td>
                           <td className="px-2 py-2 whitespace-nowrap">
                             <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${tx.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>{tx.status}</span>
                           </td>
@@ -883,7 +923,7 @@ export default function AccountingPage() {
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
                 <div className="text-xs text-gray-500">Source</div>
-                <div className="font-medium">{selectedTransaction.source === 'calendar' ? 'Walk-in' : selectedTransaction.source.charAt(0).toUpperCase() + selectedTransaction.source.slice(1)}</div>
+                <div className="font-medium">{selectedTransaction.source === 'calendar' ? 'Walk-in' : selectedTransaction.source ? selectedTransaction.source.charAt(0).toUpperCase() + selectedTransaction.source.slice(1) : 'Unknown'}</div>
               </div>
               <div>
                 <div className="text-xs text-gray-500">Payment Method</div>
@@ -895,7 +935,7 @@ export default function AccountingPage() {
               </div>
               <div>
                 <div className="text-xs text-gray-500">Location</div>
-                <div className="font-medium">{getLocationName(selectedTransaction.location)}</div>
+                <div className="font-medium">{(selectedTransaction as any).locationName || getLocationName(selectedTransaction.location)}</div>
               </div>
               <div>
                 <div className="text-xs text-gray-500">Staff</div>

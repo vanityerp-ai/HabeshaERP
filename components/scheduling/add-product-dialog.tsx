@@ -62,6 +62,7 @@ export function AddProductDialog({ open, onOpenChange, bookingId, onProductAdded
         price: productDetails.price * quantity,
         quantity: quantity,
         unitPrice: productDetails.price,
+        productId: productDetails.id, // Include productId for database persistence
       }
       onProductAdded(bookingId, newProduct)
       toast({

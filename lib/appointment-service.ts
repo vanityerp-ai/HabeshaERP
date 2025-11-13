@@ -356,6 +356,21 @@ export async function addAppointmentWithValidation(appointment: AppointmentData)
       return statusMap[upperStatus] || 'PENDING';
     };
 
+    // Prepare services array for API
+    // If additionalServices is provided and not empty, use it
+    // Otherwise, create a service entry from the main service fields
+    let servicesArray = appointment.additionalServices || [];
+
+    if (servicesArray.length === 0 && appointment.serviceId) {
+      // Create a service entry from the main service fields
+      servicesArray = [{
+        serviceId: appointment.serviceId,
+        price: appointment.price || 0,
+        duration: appointment.duration || 0,
+      }];
+      console.log('📋 Created services array from main service:', servicesArray);
+    }
+
     const apiPayload = {
       clientId: appointment.clientId,
       staffId: appointment.staffId,
@@ -366,7 +381,7 @@ export async function addAppointmentWithValidation(appointment: AppointmentData)
       notes: appointment.notes || '',
       status: normalizeStatus(appointment.status),
       bookingReference: appointment.bookingReference,
-      services: appointment.additionalServices || [],
+      services: servicesArray,
       products: appointment.products || [],
     };
 
@@ -388,6 +403,10 @@ export async function addAppointmentWithValidation(appointment: AppointmentData)
       };
     }
 
+    console.log('📋 Sending appointment to API:', JSON.stringify(apiPayload, null, 2));
+    console.log('📋 Services array being sent:', JSON.stringify(apiPayload.services, null, 2));
+    console.log('📋 Products array being sent:', JSON.stringify(apiPayload.products, null, 2));
+
     const response = await fetch('/api/appointments', {
       method: 'POST',
       headers: {
@@ -398,21 +417,32 @@ export async function addAppointmentWithValidation(appointment: AppointmentData)
 
     if (!response.ok) {
       let errorData;
+      let responseText = '';
       try {
-        errorData = await response.json();
+        responseText = await response.text();
+        console.error('❌ Raw error response:', responseText);
+        errorData = JSON.parse(responseText);
       } catch (e) {
-        errorData = { error: 'Failed to parse error response', status: response.status, statusText: response.statusText };
+        console.error('❌ Failed to parse error response:', e);
+        errorData = {
+          error: 'Failed to parse error response',
+          status: response.status,
+          statusText: response.statusText,
+          rawResponse: responseText
+        };
       }
       console.error('❌ Failed to save appointment to database:', errorData);
       console.error('❌ Response status:', response.status, response.statusText);
-      console.error('❌ Payload that was sent:', apiPayload);
+      console.error('❌ Payload that was sent:', JSON.stringify(apiPayload, null, 2));
 
       // Return error instead of falling back to localStorage
       // This ensures the user knows there's an issue
-      const errorMessage = errorData?.error || errorData?.details || `API error: ${response.status} ${response.statusText}`;
+      const errorMessage = errorData?.error || errorData?.details || errorData?.message || `API error: ${response.status} ${response.statusText}`;
+      const errorDetails = errorData?.debug || errorData?.details || '';
+
       return {
         success: false,
-        error: typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage)
+        error: `${typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage)}${errorDetails ? '\n' + (typeof errorDetails === 'string' ? errorDetails : JSON.stringify(errorDetails)) : ''}`
       };
     }
 

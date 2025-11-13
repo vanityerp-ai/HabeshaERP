@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-provider"
 import { useLocations } from "@/lib/location-provider"
 import { useClients } from "@/lib/client-provider"
@@ -14,7 +15,8 @@ import { EnhancedNewClientDialog } from "@/components/clients/enhanced-new-clien
 import { Plus, Search, RefreshCw } from "lucide-react"
 
 export default function ClientsPage() {
-  const { user, currentLocation } = useAuth()
+  const router = useRouter()
+  const { user, currentLocation, hasPermission } = useAuth()
   const { getLocationName } = useLocations()
   const { clients, refreshClients } = useClients()
   const [search, setSearch] = useState("")
@@ -31,6 +33,17 @@ export default function ClientsPage() {
     } finally {
       setIsRefreshing(false)
     }
+  }
+
+  // Check permission SYNCHRONOUSLY to prevent flash of unauthorized content
+  if (!hasPermission("view_clients")) {
+    // Trigger redirect in useEffect to avoid React state update warnings
+    useEffect(() => {
+      router.push("/dashboard/appointments")
+    }, [router])
+
+    // Return null immediately to prevent any rendering
+    return null
   }
 
   return (

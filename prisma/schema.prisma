@@ -238,6 +238,16 @@ model Appointment {
   status           String            @default("PENDING") // AppointmentStatus @default(PENDING)
   notes            String?           // Using Text type for potentially long content
   statusHistory    String?           // JSON string storing status change history
+
+  // Payment fields
+  paymentStatus    String?           // 'paid', 'pending', 'refunded'
+  paymentMethod    String?           // Payment method used
+  paymentDate      DateTime?         // When payment was completed
+  discountPercentage Decimal?        // Discount percentage applied
+  discountAmount   Decimal?          // Discount amount applied
+  originalAmount   Decimal?          // Original amount before discount
+  finalAmount      Decimal?          // Final amount after discount
+
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
@@ -482,11 +492,13 @@ model AppointmentProduct {
 
 model Transaction {
   id            String            @id @default(cuid())
+  transactionNumber Int?          @unique // 5-digit sequential transaction number for display
   userId        String
   amount        Decimal
   type          String            // TransactionType
   status        String            @default("PENDING") // TransactionStatus @default(PENDING)
   method        String            // PaymentMethod
+  source        String?           // TransactionSource (POS, CALENDAR, MANUAL, etc.)
   reference     String?
   description   String?
   locationId    String?

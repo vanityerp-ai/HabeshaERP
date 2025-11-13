@@ -17,7 +17,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { CalendarIcon, X } from "lucide-react"
-import { set, isBefore, startOfDay, addMinutes, parseISO } from "date-fns"
+import { set, isBefore, startOfDay, addMinutes, parseISO, format } from "date-fns"
 import { formatAppDate, formatForDateInput, isToday } from "@/lib/date-utils"
 import { cn } from "@/lib/utils"
 import { getFirstName } from "@/lib/female-avatars"
@@ -77,8 +77,8 @@ export function NewAppointmentDialogV2({
   // Use real services and categories from service provider
   const { services, categories, refreshServices, refreshCategories } = useServices()
 
-  // Use client provider for auto-registration
-  const { autoRegisterClient, findClientByPhoneAndName } = useClients()
+  // Use client provider for auto-registration and phone lookup
+  const { autoRegisterClient, findClientByPhoneAndName, findClientByPhone } = useClients()
 
   const [formData, setFormData] = useState({
     clientName: "",
@@ -92,18 +92,41 @@ export function NewAppointmentDialogV2({
     notes: "",
   })
 
+  // Calculate time slot for staff availability checking
+  const timeSlot = useMemo(() => {
+    if (!formData.date || !formData.time || !formData.serviceId) return undefined;
+
+    const selectedService = services.find(s => s.id === formData.serviceId);
+    if (!selectedService) return undefined;
+
+    const [hours, minutes] = formData.time.split(':').map(Number);
+    const appointmentDate = new Date(formData.date);
+    appointmentDate.setHours(hours, minutes, 0, 0);
+
+    return {
+      start: appointmentDate,
+      end: addMinutes(appointmentDate, selectedService.duration)
+    };
+  }, [formData.date, formData.time, formData.serviceId, services]);
+
   // Use staff availability sync for cross-location conflict detection
   const {
     getUnavailabilityIndicator,
-    checkStaffAvailability: checkCrossLocationAvailability
+    checkStaffAvailability: checkCrossLocationAvailability,
+    staffAvailability
   } = useStaffAvailabilitySync({
     date: formData.date || initialDate,
+    timeSlot,
     locationId: formData.location || currentLocation
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState("")
   const [existingAppointments, setExistingAppointments] = useState<Appointment[]>([]);
   const [unavailableStaff, setUnavailableStaff] = useState<string[]>([]);
+
+  // Client lookup state
+  const [clientLookupStatus, setClientLookupStatus] = useState<'idle' | 'found' | 'new'>('idle')
+  const [foundClient, setFoundClient] = useState<any | null>(null)
 
   // Function to check if a staff member is available at a given time
   interface Appointment {
@@ -193,36 +216,114 @@ export function NewAppointmentDialogV2({
     }
   }, [open, isStaffLoading, realStaff.length, fetchStaff, refreshServices, refreshCategories]);
 
-  // Update unavailable staff when date, time, or service changes
+  // Handle phone number lookup
+  const handlePhoneLookup = (phone: string) => {
+    if (!phone || phone.length < 8) {
+      // Reset lookup status if phone is too short
+      setClientLookupStatus('idle')
+      setFoundClient(null)
+      return
+    }
+
+    console.log('🔍 Looking up client by phone:', phone)
+
+    // Search for existing client by phone number
+    const existingClient = findClientByPhone(phone)
+
+    if (existingClient) {
+      console.log('✅ Client found:', existingClient.name)
+      setClientLookupStatus('found')
+      setFoundClient(existingClient)
+
+      // Auto-populate name and email
+      setFormData(prev => ({
+        ...prev,
+        clientName: existingClient.name,
+        email: existingClient.email || ''
+      }))
+
+      // Visual feedback is provided by the green checkmark and border color
+      // No toast needed to avoid focus/interaction issues
+    } else {
+      console.log('ℹ️ No client found - new client')
+      setClientLookupStatus('new')
+      setFoundClient(null)
+
+      // Visual feedback is provided by the blue info icon and border color
+      // No toast needed to avoid focus/interaction issues
+    }
+  }
+
+  // Update unavailable staff when date, time, location, or service changes
   useEffect(() => {
-    if (formData.date && formData.time && formData.serviceId && realStaff.length > 0) {
+    if (formData.date && formData.time && formData.serviceId && formData.location && realStaff.length > 0) {
       const selectedService = services.find(s => s.id === formData.serviceId);
       if (selectedService) {
         const duration = selectedService.duration;
 
-        // Check each staff member's availability using real staff data
-        const unavailable = realStaff
-          .filter(staff => staff.status === "Active")
-          .filter(staff => !checkStaffAvailability(staff.id, formData.date, formData.time, duration))
-          .map(staff => staff.id);
+        // Parse date and time to create time slot
+        const [hours, minutes] = formData.time.split(':').map(Number);
+        const appointmentDate = new Date(formData.date);
+        appointmentDate.setHours(hours, minutes, 0, 0);
+        const timeSlot = {
+          start: appointmentDate,
+          end: addMinutes(appointmentDate, duration)
+        };
 
-        setUnavailableStaff(unavailable);
+        console.log('🔍 Checking staff availability for:', {
+          date: formData.date,
+          time: formData.time,
+          location: formData.location,
+          duration,
+          timeSlot
+        });
 
-        // If the currently selected staff is unavailable, clear the selection
-        if (formData.staffId && unavailable.includes(formData.staffId)) {
-          // Create a new object instead of using the spread operator with current state
-          const updatedFormData = { ...formData, staffId: "" };
-          setFormData(updatedFormData);
+        // Check each staff member's availability using cross-location availability check
+        const checkAllStaff = async () => {
+          const unavailableStaffIds: string[] = [];
 
-          toast({
-            title: "Staff unavailable",
-            description: "The selected staff member is not available at this time. Please choose another staff member or time.",
-            variant: "destructive"
-          });
-        }
+          for (const staff of realStaff.filter(s => s.status === "Active")) {
+            try {
+              // Use the cross-location availability check from useStaffAvailabilitySync
+              const availabilityStatus = await checkCrossLocationAvailability(
+                staff.id,
+                timeSlot,
+                formData.location
+              );
+
+              if (!availabilityStatus.isAvailable) {
+                unavailableStaffIds.push(staff.id);
+                console.log(`❌ ${staff.name} is unavailable:`, availabilityStatus.reason);
+              } else {
+                console.log(`✅ ${staff.name} is available`);
+              }
+            } catch (error) {
+              console.error(`Error checking availability for ${staff.name}:`, error);
+              // On error, mark as unavailable to be safe
+              unavailableStaffIds.push(staff.id);
+            }
+          }
+
+          setUnavailableStaff(unavailableStaffIds);
+
+          // If the currently selected staff is unavailable, clear the selection
+          if (formData.staffId && unavailableStaffIds.includes(formData.staffId)) {
+            const unavailableStaffMember = realStaff.find(s => s.id === formData.staffId);
+            const updatedFormData = { ...formData, staffId: "" };
+            setFormData(updatedFormData);
+
+            toast({
+              title: "Staff unavailable",
+              description: `${unavailableStaffMember?.name || 'The selected staff member'} is not available at this time. Please choose another staff member or time.`,
+              variant: "destructive"
+            });
+          }
+        };
+
+        checkAllStaff();
       }
     }
-  }, [formData.date, formData.time, formData.serviceId, realStaff]);
+  }, [formData.date, formData.time, formData.serviceId, formData.location, realStaff, checkCrossLocationAvailability]);
 
   // Track previous open state to only reset form when dialog opens (not on every render)
   const [prevOpenState, setPrevOpenState] = useState(false);
@@ -305,6 +406,10 @@ export function NewAppointmentDialogV2({
 
       // Reset form data
       setFormData(newFormData);
+
+      // Reset client lookup state
+      setClientLookupStatus('idle')
+      setFoundClient(null)
 
       // Don't reset the selected category when the dialog opens
       // This allows the category selection to persist
@@ -548,8 +653,12 @@ export function NewAppointmentDialogV2({
         throw new Error("Service or staff not found")
       }
 
-      // Auto-register client - phone number is REQUIRED for database appointments
+      // Handle client registration/lookup
+      let clientId: string
+      let clientToUse: any
+
       if (!formData.phone) {
+        // No phone provided - show error
         toast({
           title: "Phone number required",
           description: "Please provide a phone number to create an appointment.",
@@ -558,8 +667,10 @@ export function NewAppointmentDialogV2({
         return
       }
 
-      // Try to auto-register the client
-      console.log('🔄 Auto-registering client:', {
+      // ALWAYS use auto-registration flow to ensure client exists in database
+      // This handles both new clients and existing clients
+      // The autoRegisterClient function will return the existing client if found
+      console.log('🔄 Registering/verifying client in database:', {
         name: formData.clientName,
         phone: formData.phone,
         email: formData.email
@@ -583,8 +694,9 @@ export function NewAppointmentDialogV2({
         return
       }
 
-      const clientId = autoRegisteredClient.id
-      console.log(`✅ Auto-registered client: ${autoRegisteredClient.name} (${clientId})`)
+      clientId = autoRegisteredClient.id
+      clientToUse = autoRegisteredClient
+      console.log(`✅ Client verified/registered in database: ${autoRegisteredClient.name} (${clientId})`)
 
       // Create a new appointment object
       const newAppointment = {
@@ -651,6 +763,10 @@ export function NewAppointmentDialogV2({
       // Reset form data first
       setFormData(resetFormData);
 
+      // Reset client lookup state
+      setClientLookupStatus('idle')
+      setFoundClient(null)
+
       // Reset selected category and close dialog
       setSelectedCategory("");
       console.log("Form submitted - reset form data and category");
@@ -669,7 +785,14 @@ export function NewAppointmentDialogV2({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent
+        className="sm:max-w-[600px]"
+        onInteractOutside={(e) => {
+          // Prevent dialog from closing when clicking on toast notifications
+          // or other overlay elements
+          e.preventDefault()
+        }}
+      >
         <DialogHeader>
           <DialogTitle>New Appointment</DialogTitle>
           <DialogDescription>Create a new appointment for a client.</DialogDescription>
@@ -678,20 +801,33 @@ export function NewAppointmentDialogV2({
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="clientName">Client Name</Label>
+              <Label htmlFor="phone">
+                Phone {clientLookupStatus === 'found' && <span className="text-green-600 text-xs ml-2">✓ Client found</span>}
+                {clientLookupStatus === 'new' && <span className="text-blue-600 text-xs ml-2">ℹ New client</span>}
+              </Label>
               <Input
-                id="clientName"
-                placeholder="Enter client name"
-                value={formData.clientName}
+                id="phone"
+                placeholder="(123) 456-7890"
+                value={formData.phone}
                 onChange={(e) => {
                   const newValue = e.target.value;
-                  console.log("Client name changed:", newValue);
+                  console.log("Phone changed:", newValue);
                   setFormData((prevData) => ({
                     ...prevData,
-                    clientName: newValue
+                    phone: newValue
                   }));
+                  // Reset lookup status when phone changes
+                  setClientLookupStatus('idle')
+                  setFoundClient(null)
                 }}
-                required
+                onBlur={(e) => {
+                  // Trigger phone lookup when user leaves the field
+                  handlePhoneLookup(e.target.value)
+                }}
+                className={cn(
+                  clientLookupStatus === 'found' && "border-green-500",
+                  clientLookupStatus === 'new' && "border-blue-500"
+                )}
               />
             </div>
 
@@ -716,19 +852,20 @@ export function NewAppointmentDialogV2({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
+              <Label htmlFor="clientName">Client Name</Label>
               <Input
-                id="phone"
-                placeholder="(123) 456-7890"
-                value={formData.phone}
+                id="clientName"
+                placeholder="Enter client name"
+                value={formData.clientName}
                 onChange={(e) => {
                   const newValue = e.target.value;
-                  console.log("Phone changed:", newValue);
+                  console.log("Client name changed:", newValue);
                   setFormData((prevData) => ({
                     ...prevData,
-                    phone: newValue
+                    clientName: newValue
                   }));
                 }}
+                required
               />
             </div>
 
@@ -977,7 +1114,24 @@ export function NewAppointmentDialogV2({
                       })
                       .map((staff) => {
                         const isUnavailable = unavailableStaff.includes(staff.id);
-                        const unavailabilityReason = getUnavailabilityIndicator(staff.id);
+                        const availabilityStatus = staffAvailability[staff.id];
+
+                        // Get detailed unavailability reason
+                        let unavailabilityReason = "Unavailable";
+                        if (isUnavailable && availabilityStatus) {
+                          if (availabilityStatus.conflicts.length > 0) {
+                            const conflict = availabilityStatus.conflicts[0];
+                            const locationName = conflict.location === 'home' ? 'Home Service' :
+                                                conflict.location === 'loc1' ? 'D-Ring Road' :
+                                                conflict.location === 'loc2' ? 'Muaither' :
+                                                conflict.location === 'loc3' ? 'Medinat Khalifa' :
+                                                conflict.location;
+                            const timeStr = format(conflict.startTime, 'h:mm a');
+                            unavailabilityReason = `Booked at ${locationName} (${timeStr})`;
+                          } else if (availabilityStatus.reason) {
+                            unavailabilityReason = availabilityStatus.reason;
+                          }
+                        }
 
                         return (
                           <SelectItem
@@ -988,8 +1142,11 @@ export function NewAppointmentDialogV2({
                             <div className="flex items-center justify-between w-full">
                               <span>{getFirstName(staff.name)}</span>
                               {isUnavailable && (
-                                <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-50 text-red-500 border border-red-200">
-                                  {unavailabilityReason || "Unavailable"}
+                                <span
+                                  className="text-xs px-1.5 py-0.5 rounded-full bg-red-50 text-red-500 border border-red-200"
+                                  title={unavailabilityReason}
+                                >
+                                  {unavailabilityReason}
                                 </span>
                               )}
                             </div>

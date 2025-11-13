@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { format, parseISO } from "date-fns"
-import { ChevronDown, ChevronRight, Clock, MapPin, CalendarIcon, CheckCircle, ShoppingBag, Scissors, User, Clock as Clock3, CreditCard, Banknote, X, MessageSquare } from "lucide-react"
+import { ChevronDown, ChevronRight, Clock, MapPin, CalendarIcon, CheckCircle, CheckCircle2, ShoppingBag, Scissors, User, Clock as Clock3, CreditCard, Banknote, X, MessageSquare } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -107,37 +107,48 @@ const getEnhancedBookings = (appointments: any[] = [], locationNameFn: (id: stri
     // Regular appointment processing
     // Use the price from the appointment record (not from the services catalog)
     // This ensures we show the price that was agreed upon when the appointment was created
-    console.log(`✅ BOOKING SUMMARY: Processing appointment "${appointment.id}" with service "${appointment.service}" at price ${appointment.price}`)
+    console.log(`✅ BOOKING SUMMARY: Processing appointment "${appointment.id}"`, {
+      service: appointment.service,
+      price: appointment.price,
+      hasAdditionalServices: !!(appointment.additionalServices && appointment.additionalServices.length > 0),
+      additionalServicesCount: appointment.additionalServices?.length || 0
+    });
 
-    // Create the main service item using data from the appointment
-    const mainServiceItem: BookingItem = {
-      id: `item-${appointment.id}-1`,
-      type: "service",
-      name: appointment.service,
-      price: appointment.price || 0, // Use appointment price, not catalog price
-      staff: appointment.staffName,
-      staffId: appointment.staffId,
-      duration: appointment.duration,
-      completed: appointment.staffServiceCompleted || false,
-    }
+    // Initialize items array
+    const allItems: BookingItem[] = [];
 
-    // Initialize items array with the main service
-    const allItems: BookingItem[] = [mainServiceItem];
-
-    // Add any additional services from the appointment
+    // Use additionalServices if available (preferred), otherwise fall back to main service
+    // This prevents double counting when both exist
     if (appointment.additionalServices && appointment.additionalServices.length > 0) {
+      // Use the detailed service information from additionalServices array
+      console.log(`📋 BOOKING SUMMARY: Using additionalServices array with ${appointment.additionalServices.length} services`);
       appointment.additionalServices.forEach((additionalService: any, index: number) => {
+        console.log(`  - Service ${index + 1}: "${additionalService.name}" at price ${additionalService.price}`);
         allItems.push({
-          id: additionalService.id || `item-${appointment.id}-service-${index + 2}`,
+          id: additionalService.id || `item-${appointment.id}-service-${index + 1}`,
           type: "service",
           name: additionalService.name,
           price: additionalService.price,
-          staff: additionalService.staffName,
-          staffId: additionalService.staffId,
+          staff: additionalService.staffName || appointment.staffName,
+          staffId: additionalService.staffId || appointment.staffId,
           duration: additionalService.duration,
           completed: additionalService.completed || false,
         });
       });
+    } else if (appointment.service) {
+      // Fallback to main service only if additionalServices is empty
+      console.log(`📋 BOOKING SUMMARY: Using main service "${appointment.service}" at price ${appointment.price}`);
+      const mainServiceItem: BookingItem = {
+        id: `item-${appointment.id}-1`,
+        type: "service",
+        name: appointment.service,
+        price: appointment.price || 0,
+        staff: appointment.staffName,
+        staffId: appointment.staffId,
+        duration: appointment.duration,
+        completed: appointment.staffServiceCompleted || false,
+      };
+      allItems.push(mainServiceItem);
     }
 
     // Add any products from the appointment
@@ -806,7 +817,7 @@ export function EnhancedBookingSummary({
   }
 
   // Handle product added
-  const handleProductAdded = (bookingId: string, product: BookingItem) => {
+  const handleProductAdded = async (bookingId: string, product: BookingItem) => {
     // Set the updating flag to prevent infinite loops
     isUpdatingRef.current = true;
 
@@ -833,13 +844,41 @@ export function EnhancedBookingSummary({
       // Convert back to appointment format for parent component
       const originalAppointment = appointments.find((a) => a.id === bookingId);
       if (originalAppointment) {
-        // Create the product with the exact data
+        // Create the product with the exact data including productId
         const newProduct = {
           name: product.name,
           price: product.price,
           quantity: product.quantity,
-          unitPrice: product.unitPrice
+          unitPrice: product.unitPrice,
+          productId: (product as any).productId, // Include productId for database persistence
         };
+
+        const updatedProducts = [
+          ...(originalAppointment.products || []),
+          newProduct,
+        ];
+
+        // Save to database via API
+        try {
+          const response = await fetch('/api/appointments', {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              id: bookingId,
+              products: updatedProducts,
+            }),
+          });
+
+          if (response.ok) {
+            console.log('✅ Product saved to database');
+          } else {
+            console.warn('⚠️ Failed to save product to database');
+          }
+        } catch (error) {
+          console.error('Error saving product to database:', error);
+        }
 
         // Update the appointment with the new product
         // Use setTimeout to ensure this happens after the current render cycle
@@ -847,10 +886,7 @@ export function EnhancedBookingSummary({
           onBookingUpdate({
             ...originalAppointment,
             // Add the new product to the appointment
-            products: [
-              ...(originalAppointment.products || []),
-              newProduct,
-            ],
+            products: updatedProducts,
           });
         }, 0);
 
@@ -1023,6 +1059,36 @@ export function EnhancedBookingSummary({
           discountPercentage,
           discountAmount
         });
+
+        // Save payment information to database via API
+        (async () => {
+          try {
+            const response = await fetch('/api/appointments', {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                id: originalAppointment.id,
+                paymentStatus: 'paid',
+                paymentMethod: paymentMethod,
+                paymentDate: new Date().toISOString(),
+                discountPercentage: discountPercentage || undefined,
+                discountAmount: discountAmount || undefined,
+                originalAmount: discountAmount ? originalTotal : undefined,
+                finalAmount: discountAmount ? finalTotal : undefined,
+              }),
+            });
+
+            if (response.ok) {
+              console.log('✅ Payment information saved to database from booking summary');
+            } else {
+              console.warn('⚠️ Failed to save payment information to database from booking summary');
+            }
+          } catch (error) {
+            console.error('Error saving payment information to database from booking summary:', error);
+          }
+        })();
 
         // Update the appointment with payment information
         // Use setTimeout to ensure this happens after the current render cycle
@@ -1364,7 +1430,7 @@ export function EnhancedBookingSummary({
                 {booking.status === "completed" && (
                   <>
                     {/* Show Pay Now button if not paid yet */}
-                    {!booking.paymentStatus && (
+                    {(!booking.paymentStatus || booking.paymentStatus !== 'paid') && (
                       <Button
                         size="sm"
                         variant="default"
@@ -1379,8 +1445,19 @@ export function EnhancedBookingSummary({
                       </Button>
                     )}
 
+                    {/* Show Paid badge if payment is completed */}
+                    {booking.paymentStatus === 'paid' && (
+                      <div className="flex items-center gap-1 text-green-600 text-sm font-medium">
+                        <CheckCircle2 className="h-4 w-4" />
+                        Paid
+                        {booking.paymentMethod && (
+                          <span className="text-gray-500 text-xs ml-1">({booking.paymentMethod})</span>
+                        )}
+                      </div>
+                    )}
+
                     {/* Only show Reopen button for admin/manager users and if not paid yet */}
-                    {hasAdminPrivileges() && !booking.paymentStatus && (
+                    {hasAdminPrivileges() && (!booking.paymentStatus || booking.paymentStatus !== 'paid') && (
                       <Button
                         size="sm"
                         variant="outline"

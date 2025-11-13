@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-provider"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -31,6 +33,8 @@ import {
 import { format } from "date-fns"
 
 export default function OrdersPage() {
+  const router = useRouter()
+  const { hasPermission } = useAuth()
   const { orders, updateOrderStatus, refreshOrders } = useOrders()
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
@@ -42,6 +46,17 @@ export default function OrdersPage() {
 
  // New state for print language
   const [refreshing, setRefreshing] = useState(false)
+
+  // Check permission SYNCHRONOUSLY to prevent flash of unauthorized content
+  if (!hasPermission("view_accounting")) {
+    // Trigger redirect in useEffect to avoid React state update warnings
+    useEffect(() => {
+      router.push("/dashboard/appointments")
+    }, [router])
+
+    // Return null immediately to prevent any rendering
+    return null
+  }
 
   // Filter orders based on search and status
   const filteredOrders = orders.filter(order => {

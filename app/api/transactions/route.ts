@@ -82,9 +82,27 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ 
-      transactions,
-      total: transactions.length
+    // Transform Decimal fields to numbers and parse JSON fields for JSON serialization
+    const transformedTransactions = transactions.map(tx => ({
+      ...tx,
+      amount: Number(tx.amount),
+      serviceAmount: tx.serviceAmount ? Number(tx.serviceAmount) : undefined,
+      productAmount: tx.productAmount ? Number(tx.productAmount) : undefined,
+      originalServiceAmount: tx.originalServiceAmount ? Number(tx.originalServiceAmount) : undefined,
+      discountPercentage: tx.discountPercentage ? Number(tx.discountPercentage) : undefined,
+      discountAmount: tx.discountAmount ? Number(tx.discountAmount) : undefined,
+      items: tx.items ? JSON.parse(tx.items) : undefined,
+      // Add location name for frontend display
+      location: tx.locationId || undefined,
+      locationName: tx.location?.name || 'Unknown Location',
+      // Add client name and phone for frontend display
+      clientName: tx.user?.clientProfile?.name || undefined,
+      clientPhone: tx.user?.clientProfile?.phone || undefined,
+    }));
+
+    return NextResponse.json({
+      transactions: transformedTransactions,
+      total: transformedTransactions.length
     });
   } catch (error) {
     console.error("Error fetching transactions:", error);
@@ -107,6 +125,7 @@ export async function POST(request: NextRequest) {
       type,
       status = "COMPLETED",
       method,
+      source,
       reference,
       description,
       locationId,
@@ -127,6 +146,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Generate sequential transaction number (5 digits)
+    // Get the latest transaction number
+    const latestTransaction = await prisma.transaction.findFirst({
+      where: {
+        transactionNumber: { not: null }
+      },
+      orderBy: {
+        transactionNumber: 'desc'
+      },
+      select: {
+        transactionNumber: true
+      }
+    });
+
+    const nextTransactionNumber = latestTransaction?.transactionNumber
+      ? latestTransaction.transactionNumber + 1
+      : 10000; // Start from 10000 for 5-digit numbers
+
     // Create transaction
     const transaction = await prisma.transaction.create({
       data: {
@@ -135,6 +172,7 @@ export async function POST(request: NextRequest) {
         type,
         status,
         method,
+        source,
         reference,
         description,
         locationId,
@@ -145,6 +183,7 @@ export async function POST(request: NextRequest) {
         discountPercentage,
         discountAmount,
         items: items ? JSON.stringify(items) : null,
+        transactionNumber: nextTransactionNumber,
       },
       include: {
         user: {
@@ -169,10 +208,40 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ transaction }, { status: 201 });
+    // Transform Decimal fields to numbers and parse JSON fields for JSON serialization
+    const transformedTransaction = {
+      ...transaction,
+      amount: Number(transaction.amount),
+      serviceAmount: transaction.serviceAmount ? Number(transaction.serviceAmount) : undefined,
+      productAmount: transaction.productAmount ? Number(transaction.productAmount) : undefined,
+      originalServiceAmount: transaction.originalServiceAmount ? Number(transaction.originalServiceAmount) : undefined,
+      discountPercentage: transaction.discountPercentage ? Number(transaction.discountPercentage) : undefined,
+      discountAmount: transaction.discountAmount ? Number(transaction.discountAmount) : undefined,
+      items: transaction.items ? JSON.parse(transaction.items) : undefined,
+      // Add location name for frontend display
+      location: transaction.locationId || undefined,
+      locationName: transaction.location?.name || 'Unknown Location',
+      // Add client name and phone for frontend display
+      clientName: transaction.user?.clientProfile?.name || undefined,
+      clientPhone: transaction.user?.clientProfile?.phone || undefined,
+    };
+
+    return NextResponse.json({ transaction: transformedTransaction }, { status: 201 });
   } catch (error) {
     console.error("Error creating transaction:", error);
-    return NextResponse.json({ error: "Failed to create transaction" }, { status: 500 });
+    console.error("Error details:", {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      error: error
+    });
+
+    // Return more detailed error for debugging
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({
+      error: "Failed to create transaction",
+      details: errorMessage,
+      type: error?.constructor?.name
+    }, { status: 500 });
   }
 }
 
@@ -221,7 +290,25 @@ export async function PUT(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ transaction });
+    // Transform Decimal fields to numbers and parse JSON fields for JSON serialization
+    const transformedTransaction = {
+      ...transaction,
+      amount: Number(transaction.amount),
+      serviceAmount: transaction.serviceAmount ? Number(transaction.serviceAmount) : undefined,
+      productAmount: transaction.productAmount ? Number(transaction.productAmount) : undefined,
+      originalServiceAmount: transaction.originalServiceAmount ? Number(transaction.originalServiceAmount) : undefined,
+      discountPercentage: transaction.discountPercentage ? Number(transaction.discountPercentage) : undefined,
+      discountAmount: transaction.discountAmount ? Number(transaction.discountAmount) : undefined,
+      items: transaction.items ? JSON.parse(transaction.items) : undefined,
+      // Add location name for frontend display
+      location: transaction.locationId || undefined,
+      locationName: transaction.location?.name || 'Unknown Location',
+      // Add client name and phone for frontend display
+      clientName: transaction.user?.clientProfile?.name || undefined,
+      clientPhone: transaction.user?.clientProfile?.phone || undefined,
+    };
+
+    return NextResponse.json({ transaction: transformedTransaction });
   } catch (error) {
     console.error("Error updating transaction:", error);
     return NextResponse.json({ error: "Failed to update transaction" }, { status: 500 });
