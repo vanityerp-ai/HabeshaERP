@@ -24,7 +24,7 @@ async function checkAdmin() {
       
       // Create admin user
       console.log('🔄 Creating admin user...')
-      const adminPassword = await bcrypt.hash('admin123', 10)
+      const adminPassword = await bcrypt.hash('Admin33#', 10)
       const newAdmin = await prisma.user.create({
         data: {
           email: 'admin@vanityhub.com',
@@ -44,12 +44,12 @@ async function checkAdmin() {
     console.log('👤 ID:', adminUser.id)
     
     // Test password
-    const passwordTest = await bcrypt.compare('admin123', adminUser.password)
-    console.log('🔐 Password test (admin123):', passwordTest ? '✅ CORRECT' : '❌ INCORRECT')
-    
+    const passwordTest = await bcrypt.compare('Admin33#', adminUser.password)
+    console.log('🔐 Password test (Admin33#):', passwordTest ? '✅ CORRECT' : '❌ INCORRECT')
+
     if (!passwordTest) {
       console.log('🔄 Updating admin password...')
-      const newPassword = await bcrypt.hash('admin123', 10)
+      const newPassword = await bcrypt.hash('Admin33#', 10)
       await prisma.user.update({
         where: { id: adminUser.id },
         data: { password: newPassword }
@@ -69,7 +69,7 @@ async function checkAdmin() {
     
     console.log('\n🎯 Login credentials:')
     console.log('Email: admin@vanityhub.com')
-    console.log('Password: admin123')
+    console.log('Password: Admin33#')
     
   } catch (error) {
     console.error('❌ Error:', error)
