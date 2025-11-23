@@ -1,0 +1,103 @@
+================================================================================
+VERCEL ENVIRONMENT VARIABLES - COPY & PASTE
+================================================================================
+
+IMPORTANT: 
+1. Copy each variable name and value below
+2. Add them to Vercel Project Settings > Environment Variables
+3. Update NEXTAUTH_URL to your production domain
+4. Set NODE_ENV to "production"
+
+================================================================================
+AUTHENTICATION
+================================================================================
+
+Name: NEXTAUTH_SECRET
+Value: a57b39e1af704dc01865a3962d734836136f039df6e1ff052fc7397fe74095f9
+
+Name: NEXTAUTH_URL
+Value: https://your-domain.com
+⚠️ REPLACE "your-domain.com" with your actual Vercel domain (e.g., habeshaerp.vercel.app)
+
+================================================================================
+DATABASE - POSTGRESQL (SUPABASE)
+================================================================================
+
+Name: DATABASE_URL
+Value: postgres://postgres.tyxthyqrbmgjokfcfqgc:nMraMBe5JOLKcYvX@aws-1-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require&pgbouncer=true
+
+Name: POSTGRES_URL_NON_POOLING
+Value: postgres://postgres.tyxthyqrbmgjokfcfqgc:nMraMBe5JOLKcYvX@aws-1-us-east-1.pooler.supabase.com:5432/postgres?sslmode=require
+
+================================================================================
+SUPABASE CONFIGURATION
+================================================================================
+
+Name: NEXT_PUBLIC_SUPABASE_URL
+Value: https://tyxthyqrbmgjokfcfqgc.supabase.co
+
+Name: NEXT_PUBLIC_SUPABASE_ANON_KEY
+Value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR5eHRoeXFyYm1nam9rZmNmcWdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM2NTkwNTYsImV4cCI6MjA3OTIzNTA1Nn0.fO-u2StP_WH7CD2QJDpERZMul5gpUhtCk97m5KBf0tA
+
+Name: SUPABASE_SERVICE_ROLE_KEY
+Value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR5eHRoeXFyYm1nam9rZmNmcWdjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MzY1OTA1NiwiZXhwIjoyMDc5MjM1MDU2fQ.LihbAxaUyhe7mMLYKbmfzIrRkzbhcDCWIOlSrDgQuh8
+
+================================================================================
+APPLICATION CONFIGURATION
+================================================================================
+
+Name: USE_MOCK_DATA
+Value: false
+
+Name: SKIP_DB_CONNECTION
+Value: false
+
+Name: HOST
+Value: 0.0.0.0
+
+Name: PORT
+Value: 3000
+
+Name: NODE_ENV
+Value: production
+
+================================================================================
+SETUP INSTRUCTIONS
+================================================================================
+
+1. Go to https://vercel.com/dashboard
+2. Select your HabeshaERP project
+3. Click Settings > Environment Variables
+4. For each variable above:
+   - Click "Add New"
+   - Enter Name and Value
+   - Select: Production, Preview, Development
+   - Click Save
+5. Update NEXTAUTH_URL to your production domain
+6. Redeploy the application
+7. Verify deployment successful
+
+================================================================================
+IMPORTANT NOTES
+================================================================================
+
+✅ All variables are required
+✅ Keep secrets private - never share these values
+✅ Update NEXTAUTH_URL to your production domain
+✅ Set NODE_ENV to "production" for Vercel
+✅ Database is already configured with Supabase
+✅ SSL/TLS is enabled (sslmode=require)
+
+================================================================================
+VERIFICATION
+================================================================================
+
+After deployment, verify:
+- Application loads without errors
+- Database connection works
+- API endpoints respond
+- Authentication works
+- No errors in Vercel logs
+
+================================================================================
+
