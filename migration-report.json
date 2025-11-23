@@ -1,0 +1,41 @@
+{
+  "timestamp": "2025-11-23T15:42:10.404Z",
+  "status": "success",
+  "tables": {
+    "users": {
+      "exported": 1,
+      "imported": 1,
+      "errors": []
+    },
+    "locations": {
+      "exported": 5,
+      "imported": 5,
+      "errors": []
+    },
+    "staff_members": {
+      "exported": 0,
+      "imported": 0,
+      "errors": []
+    },
+    "clients": {
+      "exported": 0,
+      "imported": 0,
+      "errors": []
+    },
+    "products": {
+      "exported": 0,
+      "imported": 0,
+      "errors": []
+    },
+    "transactions": {
+      "exported": 0,
+      "imported": 0,
+      "errors": []
+    }
+  },
+  "totalRecords": {
+    "exported": 6,
+    "imported": 6
+  },
+  "errors": []
+}

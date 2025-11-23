@@ -96,11 +96,34 @@ export class InventoryTransactionService {
   }
 
   /**
-   * Save inventory transactions to localStorage
+   * Save inventory transactions to localStorage and database
    */
   private saveToStorage() {
     if (typeof window !== 'undefined') {
+      // Save to localStorage
       localStorage.setItem('vanity_inventory_transactions', JSON.stringify(this.transactions));
+
+      // Also sync to database asynchronously
+      this.syncToDatabase();
+    }
+  }
+
+  /**
+   * Sync inventory transactions to database
+   */
+  private async syncToDatabase() {
+    try {
+      for (const transaction of this.transactions) {
+        await fetch('/api/inventory/transactions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(transaction)
+        }).catch(error => {
+          console.warn(`Failed to sync inventory transaction ${transaction.id} to database:`, error);
+        });
+      }
+    } catch (error) {
+      console.error('Failed to sync inventory transactions to database:', error);
     }
   }
 
@@ -535,12 +558,14 @@ export class InventoryTransactionService {
 
   /**
    * Record a product sale transaction (for POS)
+   * Now includes cost price and profit calculations for parity with Online Store sales
    */
   recordPOSProductSale(
     productId: string,
     productName: string,
     quantity: number,
     unitPrice: number,
+    costPrice: number = 0, // NEW: Cost price for profit calculation
     clientId?: string,
     clientName?: string,
     staffId?: string,
@@ -553,6 +578,7 @@ export class InventoryTransactionService {
     const locations = SettingsStorage.getLocations()
     const locationToUse = location || (locations.length > 0 ? locations[0].id : "loc1")
     const totalAmount = quantity * unitPrice
+    const totalCost = quantity * costPrice // NEW: Calculate total cost
 
     // Generate a shorter 8-digit ID
     const generateShortId = () => {
@@ -575,21 +601,26 @@ export class InventoryTransactionService {
       staffId,
       staffName,
       location: locationToUse,
-      category: "Product Sale",
-      description: `${productName} (Qty: ${quantity})`,
+      category: "Physical Location Product Sale", // UPDATED: More descriptive category
+      description: `${productName} - POS Sale (Qty: ${quantity})`, // UPDATED: More descriptive
       items: [{
         id: productId,
         name: productName,
         quantity,
         unitPrice,
         totalPrice: totalAmount,
+        cost: costPrice, // NEW: Include cost in items
         type: 'product'
       }],
       reference,
       metadata: {
         productId,
         quantity,
-        unitPrice
+        unitPrice,
+        costPrice, // NEW: Track cost price
+        totalCost, // NEW: Track total cost
+        profit: totalAmount - totalCost, // NEW: Calculate profit
+        source: "pos" // NEW: Explicit source marker for consistency with Online Store
       },
       createdAt: new Date(),
       updatedAt: new Date()
@@ -600,7 +631,7 @@ export class InventoryTransactionService {
       this.onTransactionAdded(transaction);
     }
 
-    console.log(`🏪 Recording POS product sale: ${productName} x${quantity} = $${totalAmount}`)
+    console.log(`🏪 Recording POS product sale: ${productName} x${quantity} = $${totalAmount} (Cost: $${totalCost}, Profit: $${totalAmount - totalCost})`)
     return transaction
   }
 }

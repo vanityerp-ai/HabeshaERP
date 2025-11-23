@@ -295,7 +295,7 @@ function migrateGeneralSettings(settings: any): GeneralSettings {
 
 // Settings Service
 export const SettingsStorage = {
-  // General Settings
+  // General Settings - Now uses database with localStorage fallback
   getGeneralSettings: (): GeneralSettings => {
     const defaultSettings: GeneralSettings = {
       businessName: "Vanity Hub",
@@ -339,7 +339,26 @@ export const SettingsStorage = {
     const storedSettings = getFromStorage<any>(STORAGE_KEYS.GENERAL, defaultSettings);
     return migrateGeneralSettings(storedSettings);
   },
-  saveGeneralSettings: (settings: GeneralSettings) => saveToStorage(STORAGE_KEYS.GENERAL, settings),
+
+  saveGeneralSettings: (settings: GeneralSettings) => {
+    // Save to localStorage (primary for now, will be replaced by database)
+    saveToStorage(STORAGE_KEYS.GENERAL, settings);
+
+    // Also attempt to save to database asynchronously
+    if (typeof window !== 'undefined') {
+      fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: STORAGE_KEYS.GENERAL,
+          value: settings,
+          category: 'general'
+        })
+      }).catch(error => {
+        console.warn('Failed to save general settings to database:', error);
+      });
+    }
+  },
 
   // Locations - Now fetched from database API
   getLocations: (): Location[] => {
@@ -572,7 +591,26 @@ export const SettingsStorage = {
       autoConfirmOrders: false,
     },
   }),
-  saveCheckoutSettings: (settings: CheckoutSettings) => saveToStorage(STORAGE_KEYS.CHECKOUT, settings),
+
+  saveCheckoutSettings: (settings: CheckoutSettings) => {
+    // Save to localStorage
+    saveToStorage(STORAGE_KEYS.CHECKOUT, settings);
+
+    // Also attempt to save to database asynchronously
+    if (typeof window !== 'undefined') {
+      fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: STORAGE_KEYS.CHECKOUT,
+          value: settings,
+          category: 'checkout'
+        })
+      }).catch(error => {
+        console.warn('Failed to save checkout settings to database:', error);
+      });
+    }
+  },
 
   // Gift Card & Membership Settings
   getGiftCardMembershipSettings: (): GiftCardMembershipSettings => getFromStorage<GiftCardMembershipSettings>(STORAGE_KEYS.GIFT_CARD_MEMBERSHIP, {

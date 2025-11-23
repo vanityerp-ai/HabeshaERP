@@ -57,13 +57,8 @@ export default function POSPage() {
   console.log("User permissions:", getUserPermissions())
   console.log("Has VIEW_POS permission:", hasPermission("view_pos"))
 
-  // Always allow access for receptionists
-  if (user?.role === "receptionist") {
-    // Receptionist can always access POS
-    console.log("Receptionist role detected - allowing POS access")
-  }
-  // For other roles, check permission
-  else if (!hasPermission("view_pos")) {
+  // Check permission - no special cases
+  if (!hasPermission("view_pos")) {
     console.log("Access denied - user does not have view_pos permission")
     return (
       <AccessDenied
@@ -270,8 +265,8 @@ export default function POSPage() {
       return
     }
 
-    // Special case for receptionists - always allow checkout
-    if (user?.role === "receptionist" || hasPermission("create_sale")) {
+    // Check permission to create sales
+    if (hasPermission("create_sale")) {
       setIsPaymentDialogOpen(true)
     } else {
       toast({
@@ -350,23 +345,30 @@ export default function POSPage() {
 
       // Create separate transactions for products and services
       const transactions = [];
-      
+
       // Create product sale transaction if there are products
       if (hasProducts) {
         const productItems = cartItems.filter(item => item.type === 'product');
         const productTotal = productItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        
+
+        // Calculate total cost and profit for products (matching Online Store parity)
+        const totalProductCost = productItems.reduce((sum, item) => {
+          const product = products.find(p => p.id === item.id);
+          return sum + ((product?.cost || 0) * item.quantity);
+        }, 0);
+        const productProfit = productTotal - totalProductCost;
+
         // Create detailed product description
-        const productDescriptions = productItems.map(item => 
+        const productDescriptions = productItems.map(item =>
           `${item.name} (${item.quantity}x @ ${formatCurrency(item.price)})`
         ).join(', ');
-        
+
         const productTransaction = {
           id: generateSequentialTransactionId('TX-'),
           clientId: selectedClient?.id,
           clientName: selectedClient?.name || "Walk-in Customer",
           type: "product_sale" as TransactionType,
-          category: "Product Sale",
+          category: "Physical Location Product Sale", // UPDATED: More descriptive
           description: productDescriptions,
           amount: productTotal,
           productAmount: productAmount,
@@ -376,19 +378,33 @@ export default function POSPage() {
           location: currentLocation || "loc1",
           date: new Date().toISOString(),
           source: TransactionSource.POS,
-          items: productItems.map(item => ({
-            id: item.id,
-            name: item.name,
-            unitPrice: item.price,
-            totalPrice: item.price * item.quantity,
-            quantity: item.quantity,
-            type: 'product' as const
-          })),
+          items: productItems.map(item => {
+            const product = products.find(p => p.id === item.id);
+            return {
+              id: item.id,
+              name: item.name,
+              unitPrice: item.price,
+              totalPrice: item.price * item.quantity,
+              quantity: item.quantity,
+              cost: product?.cost || 0, // NEW: Include cost for accounting
+              type: 'product' as const
+            };
+          }),
+          metadata: {
+            // NEW: Add metadata for financial analysis (matching Online Store)
+            totalCost: totalProductCost,
+            profit: productProfit,
+            source: "pos"
+          },
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
         transactions.push(productTransaction);
-        console.log('[POS] Created product transaction:', productTransaction);
+        console.log('[POS] Created product transaction with cost tracking:', {
+          ...productTransaction,
+          totalCost: totalProductCost,
+          profit: productProfit
+        });
       }
       
       // Create service sale transaction if there are services
@@ -436,6 +452,68 @@ export default function POSPage() {
       setLastTransaction(transactions[0]); // Or use the main transaction as needed
       // Do not close the payment dialog automatically
       // setIsPaymentDialogOpen(false); // Remove or comment this line
+
+      // Persist POS sale to database via API (matching Client Portal behavior)
+      if (hasProducts) {
+        try {
+          console.log('[POS] Persisting POS sale to database...');
+          const productItems = cartItems.filter(item => item.type === 'product');
+
+          const apiPayload = {
+            locationId: currentLocation,
+            staffId: user?.id,
+            clientId: selectedClient?.id,
+            clientName: selectedClient?.name || "Walk-in Customer",
+            paymentMethod: paymentMethod.toLowerCase().includes('gift card') ? 'gift_card' :
+                          paymentMethod.toLowerCase().includes('card') || paymentMethod.toLowerCase().includes('credit') ? 'credit_card' :
+                          paymentMethod.toLowerCase().includes('mobile') ? 'mobile_payment' : 'cash',
+            paymentStatus: 'paid',
+            items: productItems.map(item => {
+              const product = products.find(p => p.id === item.id);
+              return {
+                id: item.id,
+                name: item.name,
+                type: 'product',
+                price: item.price,
+                quantity: item.quantity,
+                cost: product?.cost || 0
+              };
+            }),
+            discountAmount: discountAmount || 0,
+            tipAmount: 0
+          };
+
+          console.log('[POS] API payload:', apiPayload);
+
+          const apiResponse = await fetch('/api/sales', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(apiPayload),
+          });
+
+          if (!apiResponse.ok) {
+            const errorData = await apiResponse.json();
+            console.error('[POS] Failed to persist sale to database:', errorData);
+            toast({
+              variant: "destructive",
+              title: "Database Save Error",
+              description: "Sale was recorded locally but failed to save to database. Please contact support.",
+            });
+          } else {
+            const responseData = await apiResponse.json();
+            console.log('[POS] Successfully persisted sale to database:', responseData);
+          }
+        } catch (error) {
+          console.error('[POS] Error persisting sale to database:', error);
+          toast({
+            variant: "destructive",
+            title: "Database Save Error",
+            description: "Sale was recorded locally but failed to save to database.",
+          });
+        }
+      }
 
       // Update inventory for product sales
       if (hasProducts) {

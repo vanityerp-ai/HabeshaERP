@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("POSTGRES_URL_NON_POOLING")
 }
 
 // ERD generator disabled for now
@@ -722,3 +723,19 @@ model AuditLog {
 // CREATE INDEX CONCURRENTLY idx_appointments_staff_date ON appointments(staff_id, date);
 // CREATE INDEX CONCURRENTLY idx_transactions_user_date ON transactions(user_id, created_at);
 // CREATE INDEX CONCURRENTLY idx_product_locations_stock ON product_locations(location_id, stock) WHERE is_active = true;
+
+// ============================================================================
+// APPLICATION SETTINGS
+// ============================================================================
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String   // JSON stringified
+  category  String   @default("general")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@map("settings")
+}

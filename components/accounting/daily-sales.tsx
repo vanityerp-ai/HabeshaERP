@@ -29,7 +29,8 @@ function truncateDescription(description: string, maxLength: number = 20): strin
 import { format, addDays, subDays, isSameDay } from "date-fns"
 import type { DateRange } from "react-day-picker"
 import { useTransactions } from "@/lib/transaction-provider"
-import { TransactionType, TransactionStatus, PaymentMethod } from "@/lib/transaction-types"
+import { useLocations } from "@/lib/location-provider"
+import { TransactionType, TransactionStatus, TransactionSource, PaymentMethod } from "@/lib/transaction-types"
 
 interface DailySalesProps {
   dateRange?: DateRange
@@ -59,6 +60,7 @@ export function DailySales({
   selectedLocation = "all"
 }: DailySalesProps) {
   const { transactions, filterTransactions } = useTransactions()
+  const { locations } = useLocations()
   const { toast } = useToast()
   const [currentDate, setCurrentDate] = useState<Date>(singleDate || new Date())
   const [activeSection, setActiveSection] = useState("daily-sales-summary")
@@ -66,7 +68,15 @@ export function DailySales({
   const [isExporting, setIsExporting] = useState(false)
   const [isPrinting, setIsPrinting] = useState(false)
 
-  // Get transactions for the current date
+  // Helper function to get location name by ID
+  const getLocationName = (locationId: string | null | undefined): string => {
+    if (!locationId) return 'Online';
+    if (locationId === 'all') return 'All Locations';
+    const location = locations.find(loc => loc.id === locationId);
+    return location?.name || locationId;
+  }
+
+  // Get transactions for the current date (with Online Store product sales enforced to always appear)
   const dailyTransactions = useMemo(() => {
     const filters: any = {
       singleDate: currentDate
@@ -701,7 +711,7 @@ export function DailySales({
               <CardTitle className="text-base font-medium">Sales</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="rounded-md border">
+              <div className="rounded-md border overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/50">
@@ -710,35 +720,58 @@ export function DailySales({
                       <TableHead className="font-medium">Quantity</TableHead>
                       <TableHead className="text-right font-medium">Amount</TableHead>
                       <TableHead className="font-medium">Payment Method</TableHead>
+                      <TableHead className="font-medium">Source</TableHead>
+                      <TableHead className="font-medium">Location</TableHead>
+                      <TableHead className="font-medium">Client</TableHead>
+                      <TableHead className="font-medium">Staff</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {dailyTransactions
-                      .filter(tx => tx.type === TransactionType.PRODUCT_SALE || tx.type === TransactionType.SERVICE_SALE)
-                      .map((tx, index) => (
-                        <TableRow key={index}>
-                          <TableCell className="py-2">{format(new Date(tx.date), 'HH:mm')}</TableCell>
-                          <TableCell className="py-2">
-                            <span title={tx.description}>{truncateDescription(tx.description)}</span>
-                          </TableCell>
-                          <TableCell className="py-2">{tx.quantity || 1}</TableCell>
-                          <TableCell className="text-right py-2">
-                            <div className="flex flex-col items-end">
-                              <CurrencyDisplay amount={tx.amount} />
-                              {((tx.metadata?.discountApplied && tx.metadata?.originalTotal) ||
-                                (tx.discountPercentage && tx.discountPercentage > 0 && tx.originalServiceAmount)) && (
-                                <div className="text-xs text-muted-foreground line-through">
-                                  <CurrencyDisplay amount={tx.metadata?.originalTotal || tx.originalServiceAmount || 0} />
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="py-2">{tx.paymentMethod}</TableCell>
-                        </TableRow>
-                      ))}
-                    {dailyTransactions.filter(tx => tx.type === TransactionType.PRODUCT_SALE || tx.type === TransactionType.SERVICE_SALE).length === 0 && (
+                      .filter(tx => tx.type === TransactionType.PRODUCT_SALE || tx.type === TransactionType.SERVICE_SALE || tx.type === TransactionType.CONSOLIDATED_SALE)
+                      .map((tx, index) => {
+                        // Format source display
+                        const sourceDisplay = tx.source === TransactionSource.CLIENT_PORTAL
+                          ? '🛒 Client Portal'
+                          : tx.source === TransactionSource.POS
+                            ? '🏪 POS'
+                            : tx.source === TransactionSource.CALENDAR
+                              ? '📅 Appointment'
+                              : tx.source?.charAt(0).toUpperCase() + tx.source?.slice(1) || 'Unknown';
+
+                        return (
+                          <TableRow key={index}>
+                            <TableCell className="py-2">{format(new Date(tx.date), 'HH:mm')}</TableCell>
+                            <TableCell className="py-2">
+                              <span title={tx.description}>{truncateDescription(tx.description)}</span>
+                            </TableCell>
+                            <TableCell className="py-2">{tx.quantity || 1}</TableCell>
+                            <TableCell className="text-right py-2">
+                              <div className="flex flex-col items-end">
+                                <CurrencyDisplay amount={tx.amount} />
+                                {((tx.metadata?.discountApplied && tx.metadata?.originalTotal) ||
+                                  (tx.discountPercentage && tx.discountPercentage > 0 && tx.originalServiceAmount)) && (
+                                  <div className="text-xs text-muted-foreground line-through">
+                                    <CurrencyDisplay amount={tx.metadata?.originalTotal || tx.originalServiceAmount || 0} />
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-2">{tx.paymentMethod}</TableCell>
+                            <TableCell className="py-2">
+                              <span className="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+                                {sourceDisplay}
+                              </span>
+                            </TableCell>
+                            <TableCell className="py-2 whitespace-nowrap">{getLocationName(tx.location)}</TableCell>
+                            <TableCell className="py-2 whitespace-nowrap">{tx.clientName || '-'}</TableCell>
+                            <TableCell className="py-2 whitespace-nowrap">{tx.staffName || '-'}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    {dailyTransactions.filter(tx => tx.type === TransactionType.PRODUCT_SALE || tx.type === TransactionType.SERVICE_SALE || tx.type === TransactionType.CONSOLIDATED_SALE).length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
+                        <TableCell colSpan={9} className="text-center py-4 text-muted-foreground">
                           No sales found for this date.
                         </TableCell>
                       </TableRow>
