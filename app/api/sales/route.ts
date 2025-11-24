@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { salesRepository } from "@/lib/db"
-import { getServerSession } from "next-auth"
+import { auth } from "@/auth"
 import { PERMISSIONS } from "@/lib/permissions"
 import { prisma } from "@/lib/prisma"
 
@@ -17,7 +17,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     // Check user session and permissions
-    const session = await getServerSession()
+    const session = await auth()
 
     // If no session or user, return unauthorized
     if (!session || !session.user) {

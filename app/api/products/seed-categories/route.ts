@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
+import { auth } from "@/auth"
 import { seedComprehensiveCategories } from "@/scripts/seed-comprehensive-categories"
 
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession()
+    const session = await auth()
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }

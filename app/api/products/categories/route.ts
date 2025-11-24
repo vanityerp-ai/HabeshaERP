@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { getServerSession } from "next-auth"
+import { auth } from "@/auth"
 
 // GET /api/products/categories - Fetch all product categories from database
 export async function GET() {
@@ -63,7 +63,7 @@ export async function GET() {
 // POST /api/products/categories - Create a new product category
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession()
+    const session = await auth()
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }

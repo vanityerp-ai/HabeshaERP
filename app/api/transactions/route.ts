@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { getServerSession } from "next-auth"
+import { auth } from "@/auth"
 
 /**
  * GET /api/transactions
@@ -61,7 +61,7 @@ export async function GET(request: Request) {
  */
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession()
+    const session = await auth()
     if (!session || !session.user) {
       console.warn("❌ POST /api/transactions: No session found")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
