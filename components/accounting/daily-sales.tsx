@@ -597,7 +597,7 @@ export function DailySales({
                     <TableBody>
                       {transactionSummary.map((item, index) => (
                         <TableRow
-                          key={index}
+                          key={`${item.itemType}-${index}`}
                           className={item.itemType === "Total Sales" ? "font-semibold border-t-2 bg-muted/30" : ""}
                         >
                           <TableCell className="py-2">{item.itemType}</TableCell>
@@ -671,7 +671,7 @@ export function DailySales({
                     {dailyTransactions
                       .filter(tx => tx.reference?.type === 'appointment')
                       .map((tx, index) => (
-                        <TableRow key={index}>
+                        <TableRow key={`appointment-${tx.id}-${index}`}>
                           <TableCell className="py-2">{format(new Date(tx.date), 'HH:mm')}</TableCell>
                           <TableCell className="py-2">{tx.clientName || 'N/A'}</TableCell>
                           <TableCell className="py-2">
@@ -740,7 +740,7 @@ export function DailySales({
                               : tx.source?.charAt(0).toUpperCase() + tx.source?.slice(1) || 'Unknown';
 
                         return (
-                          <TableRow key={index}>
+                          <TableRow key={`product-${tx.id}-${index}`}>
                             <TableCell className="py-2">{format(new Date(tx.date), 'HH:mm')}</TableCell>
                             <TableCell className="py-2">
                               <span title={tx.description}>{truncateDescription(tx.description)}</span>
@@ -995,7 +995,7 @@ export function DailySales({
                           const discountPercentage = tx.discountPercentage || tx.metadata?.discountPercentage || 0
 
                           return (
-                            <TableRow key={index}>
+                            <TableRow key={`discount-${tx.id}-${index}`}>
                               <TableCell className="py-2">{format(new Date(tx.date), 'HH:mm')}</TableCell>
                               <TableCell className="py-2">{tx.clientName || 'N/A'}</TableCell>
                               <TableCell className="py-2">

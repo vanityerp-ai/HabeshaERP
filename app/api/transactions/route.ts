@@ -63,6 +63,7 @@ export async function POST(request: Request) {
   try {
     const session = await getServerSession()
     if (!session || !session.user) {
+      console.warn("❌ POST /api/transactions: No session found")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -72,13 +73,21 @@ export async function POST(request: Request) {
       userId: data.userId,
       amount: data.amount,
       type: data.type,
-      status: data.status
+      status: data.status,
+      method: data.method
     })
 
     // Validate required fields
     if (!data.userId || !data.amount || !data.type || !data.status || !data.method) {
-      return NextResponse.json({ 
-        error: "Missing required fields: userId, amount, type, status, and method are required" 
+      console.error("❌ POST /api/transactions: Missing required fields", {
+        userId: !!data.userId,
+        amount: !!data.amount,
+        type: !!data.type,
+        status: !!data.status,
+        method: !!data.method
+      })
+      return NextResponse.json({
+        error: "Missing required fields: userId, amount, type, status, and method are required"
       }, { status: 400 })
     }
 

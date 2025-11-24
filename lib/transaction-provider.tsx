@@ -434,39 +434,61 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
         }
       }
 
+      const payload = {
+        userId: userId,
+        amount: transaction.amount,
+        type: transaction.type,
+        status: transaction.status,
+        method: transaction.paymentMethod,
+        reference: transaction.reference?.id || null,
+        description: transaction.description || `${transaction.category} - ${transaction.description || ''}`,
+        locationId: transaction.location || null,
+        appointmentId: transaction.reference?.type === 'appointment' ? transaction.reference.id : null,
+        serviceAmount: transaction.type === 'SERVICE_SALE' ? transaction.amount : null,
+        productAmount: transaction.type === 'PRODUCT_SALE' ? transaction.amount : null,
+        originalServiceAmount: transaction.metadata?.originalServiceAmount || null,
+        discountPercentage: transaction.metadata?.discountPercentage || null,
+        discountAmount: transaction.metadata?.discountAmount || null,
+        items: transaction.items || []
+      };
+
+      console.log('📤 Sending transaction payload to API:', payload);
+
       const response = await fetch('/api/transactions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          userId: userId,
-          amount: transaction.amount,
-          type: transaction.type,
-          status: transaction.status,
-          method: transaction.paymentMethod,
-          reference: transaction.reference?.id || null,
-          description: transaction.description || `${transaction.category} - ${transaction.description || ''}`,
-          locationId: transaction.location || null,
-          appointmentId: transaction.reference?.type === 'appointment' ? transaction.reference.id : null,
-          serviceAmount: transaction.type === 'SERVICE_SALE' ? transaction.amount : null,
-          productAmount: transaction.type === 'PRODUCT_SALE' ? transaction.amount : null,
-          originalServiceAmount: transaction.metadata?.originalServiceAmount || null,
-          discountPercentage: transaction.metadata?.discountPercentage || null,
-          discountAmount: transaction.metadata?.discountAmount || null,
-          items: transaction.items || []
-        }),
+        credentials: 'include', // Include cookies for session
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        console.error('❌ Failed to save transaction to database:', error);
+        let errorData;
+        let responseText = '';
+        try {
+          responseText = await response.text();
+          errorData = responseText ? JSON.parse(responseText) : { message: response.statusText };
+        } catch (parseError) {
+          errorData = { message: response.statusText, rawResponse: responseText };
+        }
+        console.error('❌ Failed to save transaction to database:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData,
+          payload: payload
+        });
+        throw new Error(`API Error: ${response.status} - ${JSON.stringify(errorData)}`);
       } else {
         const result = await response.json();
         console.log('✅ Transaction saved to database:', result.transaction?.id);
       }
     } catch (error) {
-      console.error('❌ Error saving transaction to database:', error);
+      console.error('❌ Error saving transaction to database:', {
+        error: error instanceof Error ? error.message : String(error),
+        payload: payload
+      });
+      throw error;
     }
   };
 

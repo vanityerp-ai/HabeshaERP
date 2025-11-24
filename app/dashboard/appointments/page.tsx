@@ -87,6 +87,27 @@ export default function AppointmentsPage() {
       console.log("Recording consolidated transaction for appointment:", appointment);
       console.log("addTransaction function available:", typeof addTransaction);
 
+      // Validate required fields
+      if (!appointment.service) {
+        console.error("❌ Cannot record transaction: Appointment missing service field");
+        toast({
+          variant: "destructive",
+          title: "Transaction Error",
+          description: "Cannot record transaction: Service information is missing.",
+        });
+        return;
+      }
+
+      if (!appointment.price || appointment.price <= 0) {
+        console.error("❌ Cannot record transaction: Appointment missing or invalid price");
+        toast({
+          variant: "destructive",
+          title: "Transaction Error",
+          description: "Cannot record transaction: Price information is missing or invalid.",
+        });
+        return;
+      }
+
       // Ensure price is set from service data if missing
       if (appointment.service && !appointment.price) {
         const service = services.find(s => s.name === appointment.service);
@@ -189,13 +210,24 @@ export default function AppointmentsPage() {
     console.log("Found completed appointments:", completedAppointments.length);
 
     completedAppointments.forEach(appointment => {
+      // Validate that appointment has required fields
+      if (!appointment.service) {
+        console.log(`⚠️ Skipping appointment ${appointment.id}: Missing service field`);
+        return;
+      }
+
+      if (!appointment.price || appointment.price <= 0) {
+        console.log(`⚠️ Skipping appointment ${appointment.id}: Missing or invalid price`);
+        return;
+      }
+
       const totalAmount = calculateAppointmentTotal(appointment);
       console.log(`Checking appointment ${appointment.id} (${appointment.clientName}) - Total: ${totalAmount}`);
 
       if (totalAmount > 0) {
         // Check if transaction should be recorded using deduplication service
-        const existingTransactions = transactions.filter(tx => 
-          tx.reference?.type === 'appointment' && 
+        const existingTransactions = transactions.filter(tx =>
+          tx.reference?.type === 'appointment' &&
           tx.reference?.id === appointment.id
         );
 

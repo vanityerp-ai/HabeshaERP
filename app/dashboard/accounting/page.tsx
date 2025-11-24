@@ -675,7 +675,7 @@ export default function AccountingPage() {
                           <td className="px-2 py-2 font-mono whitespace-nowrap">{tx.id}</td>
                           <td className="px-2 py-2">
                             <span className="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
-                              {tx.source === 'calendar' ? 'Walk-in' : tx.source.charAt(0).toUpperCase() + tx.source.slice(1)}
+                              {tx.source === 'calendar' ? 'Walk-in' : tx.source ? tx.source.charAt(0).toUpperCase() + tx.source.slice(1) : 'Unknown'}
                             </span>
                           </td>
                           <td className="px-2 py-2 whitespace-nowrap">{typeof tx.date === 'string' ? new Date(tx.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : tx.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</td>
@@ -883,7 +883,7 @@ export default function AccountingPage() {
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
                 <div className="text-xs text-gray-500">Source</div>
-                <div className="font-medium">{selectedTransaction.source === 'calendar' ? 'Walk-in' : selectedTransaction.source.charAt(0).toUpperCase() + selectedTransaction.source.slice(1)}</div>
+                <div className="font-medium">{selectedTransaction.source === 'calendar' ? 'Walk-in' : selectedTransaction.source ? selectedTransaction.source.charAt(0).toUpperCase() + selectedTransaction.source.slice(1) : 'Unknown'}</div>
               </div>
               <div>
                 <div className="text-xs text-gray-500">Payment Method</div>

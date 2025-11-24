@@ -7,6 +7,9 @@ import { CurrencyDisplay } from "@/components/ui/currency-display"
 import type { DateRange } from "react-day-picker"
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Bar, BarChart, PieChart, Pie, Cell } from "recharts"
 import { useAuth } from "@/lib/auth-provider"
+import { useTransactions } from "@/lib/transaction-provider"
+import { aggregateFinancialSummary, aggregateDailySalesData } from "@/lib/accounting-data-aggregator"
+import { format, eachDayOfInterval, startOfDay, endOfDay } from "date-fns"
 
 interface FinancialOverviewProps {
   dateRange?: DateRange
@@ -14,46 +17,145 @@ interface FinancialOverviewProps {
 
 export function FinancialOverview({ dateRange }: FinancialOverviewProps) {
   const { currentLocation } = useAuth()
+  const { transactions } = useTransactions()
   const [financialData, setFinancialData] = useState({
-    totalRevenue: 13700,
-    serviceRevenue: 9850,
-    productRevenue: 3850,
-    totalExpenses: 7250,
-    operatingExpenses: 5100,
-    cogs: 2150,
-    netProfit: 6450,
+    totalRevenue: 0,
+    serviceRevenue: 0,
+    productRevenue: 0,
+    totalExpenses: 0,
+    operatingExpenses: 0,
+    cogs: 0,
+    netProfit: 0,
     inventoryValue: 25000,
-    profitMargin: 47.1
+    profitMargin: 0
   })
 
   const [revenueBreakdown, setRevenueBreakdown] = useState([
-    { name: "Services", value: 9850, color: "#8884d8" },
-    { name: "Products", value: 3850, color: "#82ca9d" }
+    { name: "Services", value: 0, color: "#8884d8" },
+    { name: "Products", value: 0, color: "#82ca9d" }
   ])
 
   const [expenseBreakdown, setExpenseBreakdown] = useState([
-    { name: "Operating", value: 5100, color: "#ffc658" },
-    { name: "COGS", value: 2150, color: "#ff7c7c" }
+    { name: "Operating", value: 0, color: "#ffc658" },
+    { name: "COGS", value: 0, color: "#ff7c7c" }
   ])
 
-  // Mock financial data with inventory integration
-  const revenueData = [
-    { date: "Mar 01", services: 850, products: 350, expenses: 600, cogs: 200, profit: 400 },
-    { date: "Mar 05", services: 1300, products: 500, expenses: 750, cogs: 250, profit: 800 },
-    { date: "Mar 10", services: 1000, products: 400, expenses: 675, cogs: 225, profit: 500 },
-    { date: "Mar 15", services: 1600, products: 600, expenses: 825, cogs: 275, profit: 1100 },
-    { date: "Mar 20", services: 1350, products: 550, expenses: 712, cogs: 238, profit: 950 },
-    { date: "Mar 25", services: 1750, products: 650, expenses: 900, cogs: 300, profit: 1200 },
-    { date: "Mar 30", services: 2000, products: 800, expenses: 975, cogs: 325, profit: 1500 },
-  ]
+  const [revenueData, setRevenueData] = useState<any[]>([])
 
   useEffect(() => {
-    // In a real app, fetch financial data based on dateRange and currentLocation
-    // This would include calls to the financial transactions API
-    if (dateRange && currentLocation) {
-      // fetchFinancialData(dateRange, currentLocation)
+    // Calculate financial data from actual transactions
+    if (transactions && Array.isArray(transactions)) {
+      console.log('📊 FinancialOverview: Calculating from transactions:', {
+        transactionCount: transactions.length,
+        dateRange,
+        currentLocation
+      })
+      const safeDateRange = dateRange && dateRange.from && dateRange.to ? { from: dateRange.from, to: dateRange.to } : undefined;
+      const summary = aggregateFinancialSummary(transactions, [], safeDateRange, currentLocation !== "all" ? currentLocation : undefined)
+      console.log('📊 FinancialOverview: Summary calculated:', summary)
+
+      // Calculate service and product revenue from transactions
+      let serviceRevenue = 0
+      let productRevenue = 0
+
+      transactions.forEach(t => {
+        // Check if transaction is within date range
+        if (safeDateRange?.from && safeDateRange?.to) {
+          const txDate = new Date(t.date)
+          if (txDate < startOfDay(safeDateRange.from) || txDate > endOfDay(safeDateRange.to)) {
+            return
+          }
+        }
+
+        // Check if transaction is in the correct location
+        if (currentLocation && currentLocation !== 'all' && t.location !== currentLocation) {
+          return
+        }
+
+        // Only count completed transactions
+        if (t.status !== 'completed') {
+          return
+        }
+
+        // Calculate service and product revenue based on transaction type
+        if (t.type === 'consolidated_sale') {
+          // For consolidated sales, use the serviceAmount and productAmount fields
+          if (t.serviceAmount) {
+            serviceRevenue += t.serviceAmount
+          }
+          if (t.productAmount) {
+            productRevenue += t.productAmount
+          }
+        } else if (t.type === 'service_sale') {
+          // For service sales, add to service revenue
+          serviceRevenue += (t.amount || 0)
+        } else if (t.type === 'product_sale') {
+          // For product sales, add to product revenue
+          productRevenue += (t.amount || 0)
+        }
+      })
+
+      let totalExpenses = 0
+      transactions.forEach(t => {
+        // Check if transaction is an expense
+        if (t.type !== 'expense') {
+          return
+        }
+
+        // Check if transaction is within date range
+        if (safeDateRange?.from && safeDateRange?.to) {
+          const txDate = new Date(t.date)
+          if (txDate < startOfDay(safeDateRange.from) || txDate > endOfDay(safeDateRange.to)) {
+            return
+          }
+        }
+
+        // Check if transaction is in the correct location
+        if (currentLocation && currentLocation !== 'all' && t.location !== currentLocation) {
+          return
+        }
+
+        totalExpenses += (t.amount || 0)
+      })
+
+      const netProfit = summary.totalRevenue - totalExpenses
+      const profitMargin = summary.totalRevenue > 0 ? (netProfit / summary.totalRevenue) * 100 : 0
+
+      setFinancialData({
+        totalRevenue: summary.totalRevenue,
+        serviceRevenue,
+        productRevenue,
+        totalExpenses,
+        operatingExpenses: totalExpenses * 0.7, // Estimate
+        cogs: totalExpenses * 0.3, // Estimate
+        netProfit,
+        inventoryValue: 25000,
+        profitMargin
+      })
+
+      setRevenueBreakdown([
+        { name: "Services", value: serviceRevenue, color: "#8884d8" },
+        { name: "Products", value: productRevenue, color: "#82ca9d" }
+      ])
+
+      setExpenseBreakdown([
+        { name: "Operating", value: totalExpenses * 0.7, color: "#ffc658" },
+        { name: "COGS", value: totalExpenses * 0.3, color: "#ff7c7c" }
+      ])
+
+      // Generate daily revenue data
+      if (safeDateRange?.from && safeDateRange?.to) {
+        const dailySales = aggregateDailySalesData(transactions, safeDateRange, currentLocation !== "all" ? currentLocation : undefined)
+        setRevenueData(dailySales.map(day => ({
+          date: day.date,
+          services: day.grossSales * 0.7, // Estimate
+          products: day.grossSales * 0.3, // Estimate
+          expenses: day.grossSales * 0.2, // Estimate
+          profit: day.netSales * 0.5 // Estimate
+        })))
+      }
     }
-  }, [dateRange, currentLocation])
+  }, [transactions, dateRange, currentLocation])
 
   return (
     <div className="grid gap-4">
